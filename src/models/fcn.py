@@ -1,6 +1,6 @@
 import torch
 from src.models import BaseModel, ModelRegistry
-from torch.nn.functional import binary_cross_entropy_with_logits as bce
+from torch.nn.functional import binary_cross_entropy as bce
 
 @ModelRegistry("model_s")
 class Model_s(BaseModel):
@@ -48,7 +48,12 @@ class Model_s(BaseModel):
         
     
     def __robot_presence_loss(self, y_true, y_pred):
-        return bce(y_pred.squeeze(), y_true.squeeze())
+        y_pred_probs = torch.zeros((y_pred.shape[0], 2))
+        y_pred_probs[:, 1] = y_pred[:, 0]
+        y_pred_probs[:, 0] = 1 - y_pred[:, 0]
+
+        y_true_classes = torch.nn.functional.one_hot(y_true.long(), 2).float()
+        return bce(y_pred_probs, y_true_classes)
 
 
 

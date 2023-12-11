@@ -19,15 +19,11 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             optimizer.zero_grad()
 
             image = batch['image'].to(device)
-            proj_uvz = batch['proj_uvz'].to(device)
-            u_visible = (proj_uvz[:, 0] > 0) & (proj_uvz[:, 0] < 640)
-            v_visible = (proj_uvz[:, 1] > 0) & (proj_uvz[:, 1] < 640)
-            z_visible = (proj_uvz[:, 2] > 0)
-            robot_visible = (u_visible & v_visible & z_visible).float()
+            robot_visible = batch['robot_visible']
             
             out = model.forward(image)
             
-            loss = model.loss(out, robot_visible).mean()
+            loss = model.loss(robot_visible, out).mean()
             loss.backward()
             losses.append(loss.item())
             
@@ -46,11 +42,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             losses = []
             for batch in val_dataloader:
                 image = batch['image'].to(device)
-                proj_uvz = batch['proj_uvz'].to(device)
-                u_visible = (proj_uvz[:, 0] > 0) & (proj_uvz[:, 0] < 640)
-                v_visible = (proj_uvz[:, 1] > 0) & (proj_uvz[:, 1] < 640)
-                z_visible = (proj_uvz[:, 2] > 0)
-                robot_visible = (u_visible & v_visible & z_visible).float()
+                robot_visible = batch['robot_visible']
                 
                 out = model.forward(image)
                 loss = model.loss(robot_visible, out).mean()

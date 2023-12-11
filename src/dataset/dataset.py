@@ -58,6 +58,10 @@ class H5Dataset(torch.utils.data.Dataset):
         batch['image'] = torch.tensor((self.data["image"][slice].astype(np.float32) / 255.).transpose(2, 0, 1))
         
         batch["timestamp"] = self.data["timestamp"][slice]
+        u_visible = (batch['proj_uvz'][0] > -10) & (batch['proj_uvz'][0] < 650)
+        v_visible = (batch['proj_uvz'][1] > 0) & (batch['proj_uvz'][1] < 640)
+        z_visible = (batch['proj_uvz'][2] > 0)
+        batch['robot_visible'] = (u_visible & v_visible & z_visible)
         return self.transform(batch)
     
     def __len__(self):

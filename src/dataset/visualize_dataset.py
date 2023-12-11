@@ -18,6 +18,7 @@ def vis(sample, image_plot, gt_pos_plot, led_front, led_right, led_back, led_lef
     led_left.set(facecolor = get_led_indicator_color(sample["led_bl"]))
     led_top_left.set(facecolor = get_led_indicator_color(sample["led_tl"]))
     led_top_right.set(facecolor = get_led_indicator_color(sample["led_tr"]))
+    print(sample['robot_visible'])
 
     gt_pos_plot.set_offsets(sample['proj_uvz'][:2])
     # current_data = odom_plot.get_xydata()
