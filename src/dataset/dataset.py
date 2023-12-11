@@ -68,9 +68,10 @@ class H5Dataset(torch.utils.data.Dataset):
             self.h5f.close()
     
 
-def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False):
+def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
+                sample_count = None, sample_count_seed = None):
     
-    transform = None
+    transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
             RandomHorizontalFlip((360, 640)),
@@ -84,6 +85,15 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     if camera_robot:
         camera_robot_id_int = int(camera_robot[2:])
         mask &= (dataset.data['robot_id'][:] == camera_robot_id_int)
+
+    if sample_count:
+        current_picked_idx = torch.where(mask)[0]
+        np.random.seed(sample_count_seed if sample_count_seed else 0)
+        current_picked_idx = np.random.choice(current_picked_idx, sample_count,
+                         replace=False)
+        mask[:] = False
+        mask[current_picked_idx] = True
+
     return torch.utils.data.Subset(dataset, torch.arange(len(dataset))[mask])
 
 

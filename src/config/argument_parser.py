@@ -10,6 +10,11 @@ def parse_args(*config):
     parser.add_argument('--device', type=str, help='filename of the dataset',
                         default='cuda')
     parser.add_argument("-a", "--augmentations", action='store_true')
+
+    parser.add_argument("-c", "--sample-count", type=int, default=None)
+    parser.add_argument("-cseed", "--sample-count-seed", type=int, default=None)
+    
+
     
     
 

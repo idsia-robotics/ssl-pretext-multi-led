@@ -61,8 +61,8 @@ class SimplexNoiseTransform():
         self.size = size
         self.length = 1260
         self.n_maps = 3
-        self.blends = torch.tensor([.5, .3, .3])
-        self.frequencies = torch.tensor([7, 28, 60])
+        self.blends = torch.tensor([.6, .4, .4])
+        self.frequencies = torch.tensor([20, 42, 126])
         # valid frequencies for 1260: 1 2 4 5 7 9 10 14 15 18 20 21 28 30 35 36 42 45
         #                             60 63 70 84 90 105 126 140 180 210 252 315 420 630
 
