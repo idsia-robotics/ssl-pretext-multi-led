@@ -13,10 +13,7 @@ def parse_args(*config):
 
     parser.add_argument("-c", "--sample-count", type=int, default=None)
     parser.add_argument("-cseed", "--sample-count-seed", type=int, default=None)
-    
-
-    
-    
+    parser.add_argument("--visible", action='store_true')
 
     if 'vis' in config:
         parser.add_argument("--fps", default=3, type=int)

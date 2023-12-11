@@ -11,6 +11,7 @@ class RandomHorizontalFlip():
         if torch.rand(1) < 0.5:
             batch['proj_uvz'][0] = batch['image'].shape[-1] - batch['proj_uvz'][0]
             batch['image'] = F.hflip(batch['image'])
+            batch['pos_map'] = F.hflip(batch['pos_map'])
 
         return batch
     
@@ -107,7 +108,10 @@ class RandomRotTranslTransform():
 
         image = F.affine(image, angle, translate, scale=1, shear=(0, 0),
                          interpolation=InterpolationMode.BILINEAR)
+        pos_map = F.affine(batch['pos_map'][None, ...], angle, translate, scale=1, shear=(0, 0),
+                         interpolation=InterpolationMode.BILINEAR)
 
         batch['image'] = image
+        batch['pos_map'] = pos_map.squeeze()
 
         return batch

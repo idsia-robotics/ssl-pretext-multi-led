@@ -10,7 +10,8 @@ import numpy as np
 def get_led_indicator_color(led_status):
     return 'green' if led_status else 'white'
 
-def vis(sample, image_plot, gt_pos_plot, led_front, led_right, led_back, led_left, led_top_left, led_top_right, odom_plot):
+def vis(sample, image_plot, gt_pos_plot, led_front, led_right, led_back, led_left, led_top_left, led_top_right, odom_plot,
+        pos_map_plot):
     image_plot.set_data(sample['image'].squeeze().cpu().numpy().transpose(1, 2, 0))
     led_front.set(facecolor = get_led_indicator_color(sample["led_bf"]))
     led_right.set(facecolor = get_led_indicator_color(sample["led_br"]))
@@ -18,9 +19,10 @@ def vis(sample, image_plot, gt_pos_plot, led_front, led_right, led_back, led_lef
     led_left.set(facecolor = get_led_indicator_color(sample["led_bl"]))
     led_top_left.set(facecolor = get_led_indicator_color(sample["led_tl"]))
     led_top_right.set(facecolor = get_led_indicator_color(sample["led_tr"]))
-    print(sample['robot_visible'])
+    print(sample['pos_map'].sum())
 
     gt_pos_plot.set_offsets(sample['proj_uvz'][:2])
+    pos_map_plot.set_data(sample['pos_map'].squeeze().cpu().numpy())
     # current_data = odom_plot.get_xydata()
     # if current_data[-1, 0] - current_data[0,0] >= 5 * 1e9:
         # current_data = current_data[1:, ...]
@@ -37,7 +39,8 @@ def vis(sample, image_plot, gt_pos_plot, led_front, led_right, led_back, led_lef
 def main():
     args = parse_args('vis')
     ds = get_dataset(args.dataset, camera_robot=args.robot_id, target_robots=[args.target_robot_id],
-                     augmentations=args.augmentations)
+                     augmentations=args.augmentations, only_visible_robots=args.visible,
+                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
     fig, axs = plt.subplots(2,2, gridspec_kw={"width_ratios": [.7, .3], "height_ratios" : [.6, .4]})
@@ -53,8 +56,10 @@ def main():
     led_back = patches.Rectangle((110, 130), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
     led_top_left = patches.Rectangle((45, 50), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
     led_top_right = patches.Rectangle((175, 50), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
+    pos_map_plot = axs[3].imshow(np.ones((360, 640, 1), dtype=np.uint8), cmap = 'viridis', vmin = 0, vmax = 1)
 
     axs[1].invert_yaxis()
+    
 
     axs[1].add_patch(led_front)
     axs[1].add_patch(led_right)
@@ -69,6 +74,8 @@ def main():
 
     pos_scatter = axs[0].scatter(0, 0,s=1001,
                           facecolor='none', edgecolors='blue')
+    
+
 
 
     axs[0].tick_params(bottom = False, left = False, top = False, right = False, labelleft = False, labelbottom = False) 
@@ -77,7 +84,8 @@ def main():
     fig.tight_layout()
     anim = animation.FuncAnimation(
         fig, vis, dataloader,
-        blit=False, fargs=(image_plot,pos_scatter, led_front, led_right, led_back, led_left, led_top_left, led_top_right, odom_plot),
+        blit=False, fargs=(image_plot,pos_scatter, led_front, led_right, led_back, led_left, led_top_left, led_top_right, odom_plot,
+                           pos_map_plot),
         interval=1000 // args.fps,
         cache_frame_data=False)
     if args.save:
@@ -85,7 +93,7 @@ def main():
     else:
         plt.show()
 
-
+    
 
 
 if __name__ == "__main__":
