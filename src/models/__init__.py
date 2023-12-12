@@ -1,5 +1,8 @@
+from pathlib import Path
 from typing import Any
 import torch
+from mlflow import get_experiment_by_name, search_runs, log_artifact
+from mlflow.artifacts import download_artifacts
 
 class BaseModel(torch.nn.Module):
 
@@ -17,6 +20,23 @@ class BaseModel(torch.nn.Module):
     
     def optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
+    
+    def save_checkpoint(self, path, **kwargs):
+        torch.save({
+            'model_state_dict' : self.state_dict(),
+            'model_name' : self.model_name,
+            **kwargs
+        },
+        path)
+
+    def log_checkpoint(self, checkpoint_id, **kwargs):
+        path = f"/tmp/checkpoint_{checkpoint_id}.tar"
+        self.save_checkpoint(path, **kwargs)
+        log_artifact(path)
+
+    def load_from_checkpoint(self, data):
+        self.load_state_dict(data["model_state_dict"])
+        return data
 
 
 model_registry = {}
@@ -38,6 +58,7 @@ def ModelRegistry(name):
         """
         if name not in model_registry:
             model_registry[name] = cls
+            cls.model_name = name
         else:
             raise ValueError(f"Model with name {name} already exists in registry: {model_registry[name]}")
         return cls
@@ -45,3 +66,29 @@ def ModelRegistry(name):
 
 
 import src.models.fcn
+
+def load_model(mlflow_run_name, experiment_id, checkpoint_idx, model_task):
+    runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")
+    if len(runs) == 1:
+        run = runs.iloc[0]
+        run_id = run['run_id']
+        # artifact_uri = f"runs:/{run_id}/checkpoint_{checkpoint_idx}.tar"
+        checkpoint_path = download_artifacts(run_id=run_id,
+                                             artifact_path=f"checkpoint_{checkpoint_idx}.tar",
+                                             dst_path="/tmp/.checkpoints")
+        checkpoint_path = Path(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path)
+        model = get_model(checkpoint["model_name"])(model_task)
+        model.load_from_checkpoint(checkpoint)
+        return model
+    elif len(runs) == 0:
+        raise ValueError(f"Could not find run with experiment id {experiment_id} and name {mlflow_run_name}")
+    else:
+        raise NotImplemented("Not handling case where multiple runs have the same name yet")
+
+
+
+
+        
+
+    

@@ -18,7 +18,7 @@ class Model_s(BaseModel):
             torch.nn.Conv2d(6, 12, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(12),
             torch.nn.ReLU(),
-            torch.nn.MaxPool2d(4),
+            torch.nn.MaxPool2d(2),
             torch.nn.Conv2d(12, 24, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(24),
             torch.nn.ReLU(),
@@ -75,21 +75,26 @@ class Model_s(BaseModel):
     def __robot_position_loss(self, batch, model_out):
         pos_true = batch['pos_map'][:, None, ...]
         pos_true = resize(pos_true, model_out.shape[-2:], antialias=False).float()
-        return mse_loss(model_out, pos_true)
+
+        pos_pred_sum = torch.sum(model_out, axis = [-1, -2], keepdim=True)
+        pos_pred_norm = model_out / pos_pred_sum
+        loss = 1 - (pos_pred_norm * pos_true).sum(axis = (-1, -2))
+        return loss
+    
+    def predict_pos_from_out(self, image, outs):
+        out_map_shape = outs.shape[-2:]
+        outs = outs.view(outs.shape[0], -1)
+        max_idx = outs.argmax(1).cpu()
+        indexes = unravel_index(max_idx, out_map_shape)
+        #               x               y
+        indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
+        indexes /= np.array([out_map_shape[1], out_map_shape[0]])
+        indexes *= np.array([image.shape[-1], image.shape[-2]])
+        return indexes.astype(np.int32)
     
     def predict_pos(self, image):
         outs = self(image)
-        outs = torch.zeros_like(outs)
-        map_shape = outs.shape[-2:]
-        outs[..., 20, 20] = 1
-        outs = outs.view(outs.shape[0], -1)
-        max_idx = outs.argmax(1).cpu()
-        indexes = unravel_index(max_idx, map_shape)
-        #               x               y
-        indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
-        indexes /= np.array([map_shape[1], map_shape[0]])
-        indexes *= np.array([image.shape[-1], image.shape[-2]])
-        return indexes.astype(np.int32)
+        return self.predict_pos_from_out(image, outs)
     
 
 

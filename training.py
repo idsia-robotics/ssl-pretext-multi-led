@@ -17,13 +17,19 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
     
     for e in trange(epochs):
         losses = []
+        preds = []
+        trues = []
+
         for batch in train_dataloader:
             optimizer.zero_grad()
 
             image = batch['image'].to(device)
-            robot_visible = batch['robot_visible']
             
             out = model.forward(image)
+            pos_preds = model.predict_pos_from_out(image, out)
+            preds.extend(pos_preds)
+            trues.extend(batch['proj_uvz'][:, :-1])
+
             
             loss = model.loss(batch, out).mean()
             loss.backward()
@@ -31,19 +37,13 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             
             optimizer.step()
 
+        errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
+        mlflow.log_metric('train/position/median_error', np.median(errors), e)
         mlflow.log_metric('train/loss', mean(losses), e)
         mlflow.log_metric('train/lr', lr_schedule.get_last_lr()[0], e)
 
         if e % checkpoint_logging_rate == 0:
-            checkpoint_name = f"/tmp/{model.__class__.__name__}_{e}.tar"
-            torch.save({
-                'model_state_dict' : model.state_dict(),
-                'optimizer_state_dict' : optimizer.state_dict(),
-                'epoch' : e,
-                'model_name' : model.__class__.__name__
-            },
-            checkpoint_name)
-            mlflow.log_artifact(checkpoint_name)
+            model.log_checkpoint(e)
 
         lr_schedule.step()
 
@@ -64,7 +64,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 preds.extend(pos_preds)
                 trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
             
-            errors = np.linalg.norm(np.array(preds) - np.array(losses), axis = 1)
+            errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
             mlflow.log_metric('validation/position/median_error', np.median(errors), e)
             
             # auc = binary_auc(preds, trues)
@@ -78,14 +78,14 @@ def main():
     model = model_cls(task = args.task).to(args.device)
     train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible)
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=0)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
     """
     Validation data
     """
     if args.validation_dataset:
         validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=args.visible)
-        validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size = 64, num_workers=0)
+        validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size = 64, num_workers=8)
     else:
         validation_dataloader = None
     

@@ -5,6 +5,24 @@ import numpy as np
 import torchvision
 from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip
 
+
+class PositionMapComputing:
+
+    def __init__(self, orb_size) -> None:
+        self.orb_size = orb_size
+        self.pos_orb = self.__pos_orb(self.orb_size)
+
+    def __pos_orb(self, orb_size = 20):
+        U, V = np.meshgrid(
+            np.arange(orb_size),
+            np.arange(orb_size),
+            indexing='xy'
+        )
+        grid = np.stack([V, U], axis = 0)
+        grid -= orb_size // 2
+        distances = np.linalg.norm(grid, axis = 0, ord = 2)
+        return 1 - np.tanh(.1 * distances)
+        
 class H5Dataset(torch.utils.data.Dataset):
     
     def __init__(self, filename, keys=None,
@@ -80,7 +98,8 @@ class H5Dataset(torch.utils.data.Dataset):
                                                      size=sample_count,
                                                      replace=False)
 
-        self.__pos_map_orb = None
+        self.POS_ORB_SIZE = 20
+        self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
     def __getitem__(self, slice):
         slice = self.valid_ds_indexes[slice]
@@ -101,7 +120,7 @@ class H5Dataset(torch.utils.data.Dataset):
         v_visible = (batch['proj_uvz'][1] > 0) & (batch['proj_uvz'][1] < 640)
         z_visible = (batch['proj_uvz'][2] > 0)
         batch['robot_visible'] = (u_visible & v_visible & z_visible)
-        batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"]))
+        batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible']))
         return self.transform(batch)
     
     def __len__(self):
@@ -111,29 +130,31 @@ class H5Dataset(torch.utils.data.Dataset):
         if hasattr(self, 'h5f'):
             self.h5f.close()
 
-    def __position_map(self, proj_uvz, map_size = (360, 640), orb_size = 20):
-        # Padded so i can easily crop it out
-        padding = orb_size + 50
-        h = map_size[0] + padding
-        w = map_size[1] + padding
+    def __pos_orb(self, orb_size = 20):
+        U, V = np.meshgrid(
+            np.arange(orb_size),
+            np.arange(orb_size),
+            indexing='xy'
+        )
+        grid = np.stack([V, U], axis = 0)
+        grid -= orb_size // 2
+        distances = np.linalg.norm(grid, axis = 0, ord = 2)
+        return 1 - np.tanh(.1 * distances)
 
-        result = np.zeros((h, w))
+
+    def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20):
+        # Padded so i can easily crop it out
+        if not robot_visible:
+            return np.zeros(map_size)
+
+        padding = orb_size + 50
+        result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0)
+        
         if proj_uvz[-1] > 0:
-            if self.__pos_map_orb is None:
-                U, V = np.meshgrid(
-                    np.arange(orb_size),
-                    np.arange(orb_size),
-                    indexing='xy'
-                )
-                grid = np.stack([V, U], axis = 0)
-                grid -= orb_size // 2
-                distances = np.linalg.norm(grid, axis = 0, ord = 2)
-                
-                self.__pos_map_orb = 1 - np.tanh(.1 * distances)
             u = int(proj_uvz[0]) + padding // 2
             v = int(proj_uvz[1]) + padding // 2
             result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
-        return result[padding // 2 : -padding //2, padding // 2 : -padding //2]
+        return result[padding: -padding, padding: -padding]
     
 
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
@@ -177,13 +198,16 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("data/robomaster_ds.h5")
+    dataset = H5Dataset("data/robomaster_ds_train.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()
+    visible_robots = 0
     for batch in iter(dataloader):
         for k in batch.keys():
             counts[k] = counts.get(k, 0) + 1
+        visible_robots += batch['robot_visible']
     elapsed = time() - start_time
     print(f"Read whole dataset in {elapsed:.2f} seconds")
     print(counts)
+    print("Visible instances: {visible_robots}")
