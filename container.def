@@ -49,31 +49,6 @@ python3.11 -m pip install --upgrade \
 
 python3.11 -m pip install -r requirements.txt
 
-python3.11 -m pip install \
-  tqdm \
-  h5py \
-  ipdb \
-  keras \
-  numpy \
-  scipy \
-  pandas \
-  plotly \
-  seaborn \
-  xgboost \
-  ptflops \
-  tensorrt \
-  torchinfo \
-  torchscan \
-  matplotlib \
-  tensorflow \
-  tensorboard \
-  scikit-learn \
-  scikit-image \
-  opencv-python \
-  ffmpeg-python \
-  albumentations \
-  torch-tb-profiler
-
 %environment
 
 export DISPLAY=:1.0
