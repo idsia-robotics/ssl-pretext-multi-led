@@ -98,7 +98,7 @@ class H5Dataset(torch.utils.data.Dataset):
                                                      size=sample_count,
                                                      replace=False)
 
-        self.POS_ORB_SIZE = 20
+        self.POS_ORB_SIZE = 40
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
     def __getitem__(self, slice):
@@ -120,7 +120,7 @@ class H5Dataset(torch.utils.data.Dataset):
         v_visible = (batch['proj_uvz'][1] > 0) & (batch['proj_uvz'][1] < 640)
         z_visible = (batch['proj_uvz'][2] > 0)
         batch['robot_visible'] = (u_visible & v_visible & z_visible)
-        batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible']))
+        batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
         return self.transform(batch)
     
     def __len__(self):
@@ -147,14 +147,14 @@ class H5Dataset(torch.utils.data.Dataset):
         if not robot_visible:
             return np.zeros(map_size)
 
-        padding = orb_size + 50
-        result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0)
+        padding = orb_size
+        result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0) # 440x720
         
         if proj_uvz[-1] > 0:
-            u = int(proj_uvz[0]) + padding // 2
-            v = int(proj_uvz[1]) + padding // 2
+            u = int(proj_uvz[0]) + padding
+            v = int(proj_uvz[1]) + padding
             result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
-        return result[padding: -padding, padding: -padding]
+        return result[padding:-padding, padding:-padding]
     
 
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
