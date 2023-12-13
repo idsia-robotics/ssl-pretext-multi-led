@@ -72,11 +72,11 @@ class Model_s(BaseModel):
         y_true_classes = torch.nn.functional.one_hot(batch['robot_visible'].long(), 2).float()
         return bce(y_pred_probs, y_true_classes)
 
-    def __robot_position_loss(self, batch, model_out : torch.tensor):
+    def __robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
         pos_true = resize(pos_true, model_out.shape[-2:], antialias=False).float()
 
-        pos_pred_sum = torch.sum(model_out, axis = [-1, -2], keepdim=True)
+        pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
         pos_pred_norm = model_out / pos_pred_sum
         loss = 1 - (pos_pred_norm * pos_true).sum(axis = (-1, -2))
         return loss
