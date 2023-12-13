@@ -18,6 +18,7 @@ def vis(sample, model, image_plot, model_output_plot, pos_pred_plot, pos_map_plo
     predicted_pos = model.predict_pos(sample['image'])
     pos_pred_plot.set_offsets(predicted_pos)
     model_output_plot.set_data(out)
+    print(out.mean())
     pos_map_plot.set_data(sample['pos_map'].squeeze().cpu().numpy())
 
     # current_data = odom_plot.get_xydata()
