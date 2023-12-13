@@ -28,7 +28,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             out = model.forward(image)
             pos_preds = model.predict_pos_from_out(image, out)
             preds.extend(pos_preds)
-            trues.extend(batch['proj_uvz'][:, :-1])
+            trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
 
             
             loss = model.loss(batch, out).mean()
@@ -42,7 +42,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         mlflow.log_metric('train/loss', mean(losses), e)
         mlflow.log_metric('train/lr', lr_schedule.get_last_lr()[0], e)
 
-        if e % checkpoint_logging_rate == 0:
+        if e % checkpoint_logging_rate == 0 or e == epochs - 1:
             model.log_checkpoint(e)
 
         lr_schedule.step()

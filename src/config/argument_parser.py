@@ -22,8 +22,14 @@ def parse_args(*config):
         parser.add_argument("--save", default = None, type= Path)
         parser.add_argument("-r", "--robot-id", type=str, default="RM1")
         parser.add_argument("-tr", "--target-robot-id", type=str, default="RM2")
-        parser.add_argument("--checkpoint", type=str, default="0")
-        parser.add_argument("--run-name", type=str, required=True)
+        
+        group = parser.add_mutually_exclusive_group(required=True)
+
+        mlflow_group = group.add_argument_group()
+        mlflow_group.add_argument("--checkpoint-id", type=str, default="0")
+        mlflow_group.add_argument("--run-name", type=str, required=True)
+        group.add_argument("--checkpoint-path", type=str)
+        
 
 
     if 'train' in config:

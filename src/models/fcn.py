@@ -15,47 +15,47 @@ class Model_s(BaseModel):
             torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(6),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 12, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(12),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(8),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(12, 24, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(24),
+            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(24, 48, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(48),
+            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(48, 48, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(48),
+            torch.nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(48, 48, kernel_size=1, padding=0, stride=1),
-            torch.nn.BatchNorm2d(48),
+            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0, stride=1),
+            torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(48, 3, kernel_size=1, padding=0, stride=1),
+            torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
         )
 
-        self.robot_presence_layer = torch.nn.Sequential(
-            torch.nn.Flatten(),
-            torch.nn.LazyLinear(256),
-            torch.nn.LazyLinear(1),
-            torch.nn.Sigmoid()
-        )
 
-        self.robot_position_layer = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 1, kernel_size=1, padding=0, stride=1),
-            torch.nn.Sigmoid()
-        )
 
 
         if self.task == 'presence':
+            self.robot_presence_layer = torch.nn.Sequential(
+                torch.nn.Flatten(),
+                torch.nn.LazyLinear(256),
+                torch.nn.LazyLinear(1),
+                torch.nn.Sigmoid()
+            )
             self.layers = torch.nn.Sequential(
                 self.core_layers,
                 self.robot_presence_layer
             )
             self.loss = self.__robot_presence_loss
         if self.task == 'position':
+            self.robot_position_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(3, 1, kernel_size=1, padding=0, stride=1),
+                torch.nn.Sigmoid()
+            )
             self.layers = torch.nn.Sequential(
                 self.core_layers,
                 self.robot_position_layer
@@ -72,8 +72,8 @@ class Model_s(BaseModel):
         y_true_classes = torch.nn.functional.one_hot(batch['robot_visible'].long(), 2).float()
         return bce(y_pred_probs, y_true_classes)
 
-    def __robot_position_loss(self, batch, model_out):
-        pos_true = batch['pos_map'][:, None, ...]
+    def __robot_position_loss(self, batch, model_out : torch.tensor):
+        pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
         pos_true = resize(pos_true, model_out.shape[-2:], antialias=False).float()
 
         pos_pred_sum = torch.sum(model_out, axis = [-1, -2], keepdim=True)

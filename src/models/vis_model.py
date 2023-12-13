@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.patches as patches
 from torch.utils.data import DataLoader
 import numpy as np
-from src.models import load_model
+from src.models import load_model_mlflow, load_model_raw
 
 
 def get_led_indicator_color(led_status):
@@ -55,8 +55,12 @@ def main():
 
     fig.tight_layout()
 
-    model = load_model(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint,
-                       model_task=args.task)
+    if args.checkpoint_id:
+        model = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
+                        model_task=args.task)
+    else:
+        model = load_model_raw(args.checkpoint_path, model_task=args.task)
+
     model.eval()
 
     anim = animation.FuncAnimation(

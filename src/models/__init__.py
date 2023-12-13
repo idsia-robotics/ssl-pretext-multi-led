@@ -67,7 +67,7 @@ def ModelRegistry(name):
 
 import src.models.fcn
 
-def load_model(mlflow_run_name, experiment_id, checkpoint_idx, model_task):
+def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task):
     runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")
     if len(runs) == 1:
         run = runs.iloc[0]
@@ -87,8 +87,23 @@ def load_model(mlflow_run_name, experiment_id, checkpoint_idx, model_task):
         raise NotImplemented("Not handling case where multiple runs have the same name yet")
 
 
-
+def load_model_raw(checkpoint_path, model_task):
+    checkpoint = torch.load(checkpoint_path)
+    model = get_model(checkpoint["model_name"])(model_task)
+    model.load_from_checkpoint(checkpoint)
+    return model
 
         
 
     
+if __name__ == '__main__':
+    # from torchinfo import summary
+
+    # summary(MkModel_led(), (1, 1, 320, 320))
+    # exit()
+    from torchscan import summary
+
+    for model in model_registry.values():
+        model = model()
+        summary(model, (1, 360, 640), receptive_field=True, max_depth=0)
+        print()
