@@ -77,7 +77,10 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task
                                              artifact_path=f"checkpoint_{checkpoint_idx}.tar",
                                              dst_path="/tmp/.checkpoints")
         checkpoint_path = Path(checkpoint_path)
-        checkpoint = torch.load(checkpoint_path)
+        if not torch.cuda.is_available():
+            checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(checkpoint_path)
         model = get_model(checkpoint["model_name"])(model_task)
         model.load_from_checkpoint(checkpoint)
         return model
@@ -88,7 +91,11 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task
 
 
 def load_model_raw(checkpoint_path, model_task):
-    checkpoint = torch.load(checkpoint_path)
+    if not torch.cuda.is_available():
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+    else:
+        checkpoint = torch.load(checkpoint_path)
+
     model = get_model(checkpoint["model_name"])(model_task)
     model.load_from_checkpoint(checkpoint)
     return model
