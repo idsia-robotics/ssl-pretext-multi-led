@@ -26,8 +26,8 @@ def parse_args(*config):
         group = parser.add_mutually_exclusive_group(required=True)
 
         mlflow_group = group.add_argument_group()
-        mlflow_group.add_argument("--checkpoint-id", type=str, default="0")
-        mlflow_group.add_argument("--run-name", type=str, required=True)
+        mlflow_group.add_argument("--checkpoint-id", type=str)
+        mlflow_group.add_argument("--run-name", type=str)
         group.add_argument("--checkpoint-path", type=str)
         
 
