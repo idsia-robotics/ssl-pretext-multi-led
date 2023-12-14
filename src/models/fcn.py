@@ -160,8 +160,8 @@ class Model_s(BaseModel):
 
     def __position_and_orientation_forward(self, x):
         out = self.layers(x)
-        out = out * torch.tensor([1., self.MAX_DIST_M, 2., 2.])[None, :, None, None]
-        out = out + torch.tensor([0., 0., -1., -1.])[None, :, None, None]
+        out = out * torch.tensor([1., self.MAX_DIST_M, 2., 2.])[None, :, None, None].to(out.device)
+        out = out + torch.tensor([0., 0., -1., -1.])[None, :, None, None].to(out.device)
         return out
 
     def predict_pos_from_out(self, image, outs):
