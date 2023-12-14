@@ -6,7 +6,7 @@ from mlflow.artifacts import download_artifacts
 
 class BaseModel(torch.nn.Module):
 
-    def __init__(self, task, checkpoint_file = None) -> None:
+    def __init__(self, task , checkpoint_file = None) -> None:
         super().__init__()
         self.task = task
         self.checkpoint_file = checkpoint_file
@@ -37,6 +37,9 @@ class BaseModel(torch.nn.Module):
     def load_from_checkpoint(self, data):
         self.load_state_dict(data["model_state_dict"])
         return data
+    
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        return self.forward(*args, **kwds)
 
 
 model_registry = {}
@@ -99,18 +102,3 @@ def load_model_raw(checkpoint_path, model_task):
     model = get_model(checkpoint["model_name"])(model_task)
     model.load_from_checkpoint(checkpoint)
     return model
-
-        
-
-    
-if __name__ == '__main__':
-    # from torchinfo import summary
-
-    # summary(MkModel_led(), (1, 1, 320, 320))
-    # exit()
-    from torchscan import summary
-
-    for model in model_registry.values():
-        model = model()
-        summary(model, (1, 360, 640), receptive_field=True, max_depth=0)
-        print()

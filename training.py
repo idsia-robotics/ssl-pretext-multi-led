@@ -17,6 +17,10 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
     
     for e in trange(epochs):
         losses = []
+        p_losses = []
+        d_losses = []
+        o_losses = []
+
         preds = []
         trues = []
 
@@ -31,15 +35,22 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
 
             
-            loss = model.loss(batch, out).mean()
+            loss, p_loss, d_loss, o_loss = model.loss(batch, out)
+            loss = loss.mean()
             loss.backward()
             losses.append(loss.item())
+            p_losses.append(p_loss.item())
+            d_losses.append(d_loss.item())
+            o_losses.append(o_loss.item())
             
             optimizer.step()
 
         errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
         mlflow.log_metric('train/position/median_error', np.median(errors), e)
         mlflow.log_metric('train/loss', mean(losses), e)
+        mlflow.log_metric('train/loss/p', mean(p_losses), e)
+        mlflow.log_metric('train/loss/o', mean(o_losses), e)
+        mlflow.log_metric('train/loss/d', mean(d_losses), e)
         mlflow.log_metric('train/lr', lr_schedule.get_last_lr()[0], e)
 
         if e % checkpoint_logging_rate == 0 or e == epochs - 1:
@@ -53,20 +64,30 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             preds = []
             trues = []
             losses = []
+            p_losses = []
+            d_losses = []
+            o_losses = []
+
             for batch in val_dataloader:
                 image = batch['image'].to(device)
                 
                 out = model.forward(image)
-                loss = model.loss(batch, out).mean()
+                loss, p_loss, d_loss, o_loss = model.loss(batch, out)
+                loss = loss.mean()
+                loss.backward()
                 losses.append(loss.item())
-
+                p_losses.append(p_loss.item())
+                d_losses.append(d_loss.item())
+                o_losses.append(o_loss.item())
                 pos_preds = model.predict_pos(image)
                 preds.extend(pos_preds)
                 trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
             
             errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
             mlflow.log_metric('validation/position/median_error', np.median(errors), e)
-            
+            mlflow.log_metric('validation/loss/p', mean(p_losses), e)
+            mlflow.log_metric('validation/loss/o', mean(o_losses), e)
+            mlflow.log_metric('validation/loss/d', mean(d_losses), e)
             # auc = binary_auc(preds, trues)
             # mlflow.log_metric('validation/presence/auc', auc, e)
             mlflow.log_metric('validation/loss', mean(losses), e)

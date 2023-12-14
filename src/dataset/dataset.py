@@ -45,6 +45,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.robot_ids_int = [int(rid[2:]) for rid in self.robot_ids]
 
         self.proj_uvz_keys = {}
+        self.pose_rel_keys = {}
         self.led_keys = {}
 
         self.valid_ds_indexes = torch.arange(self.data["robot_id"].shape[0])
@@ -57,11 +58,15 @@ class H5Dataset(torch.utils.data.Dataset):
 
         for source_rid in self.robot_ids_int:
             self.proj_uvz_keys[source_rid] = []
+            self.pose_rel_keys[source_rid] = []
             for target_rid in self.robot_ids_int:
                 if source_rid != target_rid:
                     if target_rid in target_robots:
                         col_name = f"RM{source_rid}_proj_uvz_RM{target_rid}"
+                        pose_rel_col_name = f"RM{source_rid}_pose_rel_RM{target_rid}"
                         self.proj_uvz_keys[source_rid].append(col_name)
+                        self.pose_rel_keys[source_rid].append(pose_rel_col_name)
+                        
                         for led_key in ["bb", "bl", "br", "bf", "tl", "tr"]:
                             if not self.led_keys.get(source_rid):
                                 self.led_keys[source_rid] = []
@@ -107,11 +112,18 @@ class H5Dataset(torch.utils.data.Dataset):
         slice_robot_id = self.data["robot_id"][slice]
         batch = {}
         
-        for proj_key in self.proj_uvz_keys[slice_robot_id]:
-            batch["proj_uvz"] = torch.tensor(self.data[proj_key][slice])
+        for proj_uvz_key in self.proj_uvz_keys[slice_robot_id]:
+            batch["proj_uvz"] = torch.tensor(self.data[proj_uvz_key][slice])
         
+        for pose_rel_key in self.pose_rel_keys[slice_robot_id]:
+            batch["pose_rel"] = torch.tensor(self.data[pose_rel_key][slice])
+    
         for led_key in self.led_keys[slice_robot_id]:
             batch[led_key[4:]] = int(self.data[led_key][slice])
+
+        for robot_id in self.robot_ids:
+            batch[robot_id + "_pose"] = self.data[robot_id + "_pose"][slice].squeeze()
+
         
         batch['image'] = torch.tensor((self.data["image"][slice].astype(np.float32) / 255.).transpose(2, 0, 1))
         
@@ -121,6 +133,8 @@ class H5Dataset(torch.utils.data.Dataset):
         z_visible = (batch['proj_uvz'][2] > 0)
         batch['robot_visible'] = (u_visible & v_visible & z_visible)
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
+
+    
         return self.transform(batch)
     
     def __len__(self):
@@ -201,7 +215,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("data/robomaster_ds_train.h5")
+    dataset = H5Dataset("/home/nicholascarlotti/uni/phd/robomaster_led/theta_rel_test_0.db3.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()
@@ -209,8 +223,8 @@ if __name__ == "__main__":
     for batch in iter(dataloader):
         for k in batch.keys():
             counts[k] = counts.get(k, 0) + 1
-        visible_robots += batch['robot_visible']
+        visible_robots += batch['robot_visible'][0].cpu().int()
     elapsed = time() - start_time
     print(f"Read whole dataset in {elapsed:.2f} seconds")
     print(counts)
-    print("Visible instances: {visible_robots}")
+    print(f"Visible instances: {visible_robots}")
