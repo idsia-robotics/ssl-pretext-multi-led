@@ -31,10 +31,10 @@ class Model_s(BaseModel):
         super(Model_s, self).__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, dilation=1),
+            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, dilation=2),
             torch.nn.BatchNorm2d(6),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1, dilation=2),
             torch.nn.BatchNorm2d(8),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
@@ -153,7 +153,7 @@ class Model_s(BaseModel):
         proj_loss_norm = proj_loss
         dist_loss_norm = dist_loss / self.MAX_DIST_M
         ori_loss_norm = orientation_loss / 2
-        return 1. * proj_loss_norm + .0 * dist_loss_norm + .0 * ori_loss_norm, \
+        return .6 * proj_loss_norm + .4 * dist_loss_norm + .0 * ori_loss_norm, \
                     proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean()
 
 
@@ -161,7 +161,7 @@ class Model_s(BaseModel):
     def __position_and_orientation_forward(self, x):
         out = self.layers(x)
         out = out * torch.tensor([1., self.MAX_DIST_M, 2., 2.])[None, :, None, None]
-        out = out - torch.tensor([0., 0., 1., 1.])[None, :, None, None]
+        out = out + torch.tensor([0., 0., -1., -1.])[None, :, None, None]
         return out
 
     def predict_pos_from_out(self, image, outs):
@@ -179,6 +179,32 @@ class Model_s(BaseModel):
     def predict_pos(self, image):
         outs = self(image)
         return self.predict_pos_from_out(image, outs)
+    
+    def predict_dist_from_outs(self, outs):
+        pos_map = outs[:, 0, ...]
+        dist_map =outs[:, 1, ...]
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        dist_scalars = (dist_map * pos_map_norm).mean(axis = (-1, -2))
+        return dist_scalars.detach().cpu().numpy()
+    
+    def predict_dist(self, image):
+        outs = self(image)
+        return self.predict_dist_from_outs(outs)
+    
+    def predict_orientation_from_outs(self, outs):
+        pos_map = outs[:, 0, ...]
+        cos_map =outs[:, 2, ...]
+        sin_map =outs[:, 3, ...]
+
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        cos_scalars = (cos_map * pos_map_norm).mean(axis = (-1, -2))
+        sin_scalars = (sin_map * pos_map_norm).mean(axis = (-1, -2))
+        thetas = torch.atan2(sin_scalars, cos_scalars).detach().cpu().numpy()
+        return thetas
+    
+    def predict_orientation(self, image):
+        outs = self(image)
+        return self.predict_orientation_from_outs(outs)
     
 
 

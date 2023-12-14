@@ -22,7 +22,12 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         o_losses = []
 
         preds = []
+        theta_preds = []
+        dist_preds = []
+
         trues = []
+        dist_trues = []
+        theta_trues = []
 
         for batch in train_dataloader:
             optimizer.zero_grad()
@@ -33,6 +38,9 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             pos_preds = model.predict_pos_from_out(image, out)
             preds.extend(pos_preds)
             trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
+            dist_trues.extend(batch["pose_rel"][:, 0])
+            theta_trues.extend(batch["pose_rel"][:, -1])
+
 
             
             loss, p_loss, d_loss, o_loss = model.loss(batch, out)
@@ -42,11 +50,19 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             p_losses.append(p_loss.item())
             d_losses.append(d_loss.item())
             o_losses.append(o_loss.item())
+
+            dpreds = model.predict_dist_from_outs(out)
+            tpreds=  model.predict_orientation_from_outs(out)
+            theta_preds.extend(tpreds)
+            dist_preds.extend(dpreds)
             
             optimizer.step()
 
         errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
+        dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
+        
         mlflow.log_metric('train/position/median_error', np.median(errors), e)
+        mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
         mlflow.log_metric('train/loss', mean(losses), e)
         mlflow.log_metric('train/loss/p', mean(p_losses), e)
         mlflow.log_metric('train/loss/o', mean(o_losses), e)
