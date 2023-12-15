@@ -17,19 +17,20 @@ def parse_args(*config):
     parser.add_argument("--experiment-id", type=str, default=None)
     parser.add_argument("-t", "--task", type=str)
 
-    if 'vis' in config:
-        parser.add_argument("--fps", default=3, type=float)
-        parser.add_argument("--save", default = None, type= Path)
-        parser.add_argument("-r", "--robot-id", type=str, default="RM1")
-        parser.add_argument("-tr", "--target-robot-id", type=str, default="RM2")
-        
-        group = parser.add_mutually_exclusive_group(required=True)
+    if 'inference' in config:
+        group = parser.add_mutually_exclusive_group()
 
         mlflow_group = group.add_argument_group()
         mlflow_group.add_argument("--checkpoint-id", type=str)
         mlflow_group.add_argument("--run-name", type=str)
         group.add_argument("--checkpoint-path", type=str)
-        
+
+
+    if 'vis' in config:
+        parser.add_argument("--fps", default=3, type=float)
+        parser.add_argument("--save", default = None, type= Path)
+        parser.add_argument("-r", "--robot-id", type=str, default="RM1")
+        parser.add_argument("-tr", "--target-robot-id", type=str, default="RM2")
 
 
     if 'train' in config:
