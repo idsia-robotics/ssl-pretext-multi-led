@@ -38,7 +38,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             pos_preds = model.predict_pos_from_out(image, out)
             preds.extend(pos_preds)
             trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
-            dist_trues.extend(batch["pose_rel"][:, 0])
+            dist_trues.extend(batch["distance_rel"])
             theta_trues.extend(batch["pose_rel"][:, -1])
 
 
@@ -113,7 +113,7 @@ def main():
     args = parse_args("train")
     model_cls = get_model(args.model_type)
     model = model_cls(task = args.task).to(args.device)
-    train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
+    train_dataset =     train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 

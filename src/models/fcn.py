@@ -119,7 +119,7 @@ class Model_s(BaseModel):
     
     def __robot_distance_loss(self, batch, model_out):
         dist_out = model_out[:, 1:2, ...]
-        dist_gt = batch["pose_rel"][:, 0].to(dist_out.device)
+        dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
         error = (dist_gt[:, None, None, None] - dist_out) ** 2
         return (error * pos_out_norm).sum(axis = [-1, -2])

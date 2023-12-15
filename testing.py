@@ -1,4 +1,4 @@
-
+import mlflow
 import numpy as np
 from src.config.argument_parser import parse_args
 from src.dataset.dataset import get_dataset
@@ -9,6 +9,8 @@ import pandas as pd
 from src.metrics import angle_difference, mse
 
 from src.models import load_model_mlflow, load_model_raw
+from src.viz.plots import theta_scatter_plot, proj_scatter_plot, proj_error_distribution
+from matplotlib import pyplot as plt
 
 
 def main():
@@ -18,9 +20,12 @@ def main():
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
+    using_mlflow = False
+
     if args.checkpoint_id:
-        model = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
+        model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
                         model_task=args.task)
+        using_mlflow = True
     else:
         model = load_model_raw(args.checkpoint_path, model_task=args.task)
 
@@ -48,16 +53,39 @@ def main():
         data['theta_pred'].extend(theta_pred)
 
         data['proj_true'].extend(batch['proj_uvz'][:, :2].numpy())
-        data['dist_true'].extend(batch['pose_rel'][:, 0].numpy())
+        data['dist_true'].extend(batch['distance_rel'].numpy())
         data['theta_true'].extend(batch['pose_rel'][:, -1].numpy())
     
-    ds = pd.DataFrame(data)
-    
-    mean_dist_error = mse(ds["dist_true"], ds["dist_pred"])
-    mean_angle_error = np.mean(angle_difference(ds["theta_true"], ds["theta_pred"]))
+    for k, v in data.items():
+        data[k] = np.stack(v)
+
+    # ds = pd.DataFrame(data)
+    mean_dist_error = np.abs(data["dist_true"] - data["dist_pred"]).mean()
+    mean_angle_error = np.mean(angle_difference(data["theta_true"], data["theta_pred"]))
+    mean_proj_erorr = np.median(np.linalg.norm(data["proj_true"] - data["proj_pred"], axis = 1))
+    print(f"Median proj error: {mean_proj_erorr}")
     print(f"Mean distance error: {mean_dist_error}")
     print(f"Mean angle error (rads): {mean_angle_error}")
     print(f"Mean angle error (degs): {np.rad2deg(mean_angle_error)}")
+
+
+    figures = [
+        theta_scatter_plot,
+        proj_scatter_plot,
+        proj_error_distribution,
+    ]
+
+    if using_mlflow:
+        with mlflow.start_run(run_id=run_id) as run:
+            for fig_fn in figures:
+                fig = fig_fn(data)
+                mlflow.log_figure(fig, fig_fn.__name__)
+    else:
+        for fig_fn in figures:
+            fig = fig_fn(data)
+            fig.show()
+        plt.show()
+            
 
 
 
