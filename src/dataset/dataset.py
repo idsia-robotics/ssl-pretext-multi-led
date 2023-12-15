@@ -78,9 +78,9 @@ class H5Dataset(torch.utils.data.Dataset):
         if only_visible_robots:
             visibility_mask = np.zeros(len(self), dtype=np.int8)
             bounds = np.array([
-                [0, 360],
-                [0, 640],
-                [0, np.inf]
+                [0, 640], # u
+                [0, 360], # v
+                [0, np.inf] # z
             ])
             for i in range(len(self)):
                 keys = self.proj_uvz_keys[self.data["robot_id"][i]]
