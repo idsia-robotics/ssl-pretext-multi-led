@@ -136,15 +136,5 @@ def main():
                    epochs=args.epochs, lr=args.learning_rate)
         
 
-    
-
-    
-
-
-
-
-
-
-
 if __name__ == "__main__":
     main()
