@@ -70,7 +70,7 @@ def ModelRegistry(name):
 
 import src.models.fcn
 
-def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task):
+def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task, return_run_id = False):
     runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")
     if len(runs) == 1:
         run = runs.iloc[0]
@@ -86,7 +86,10 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task
             checkpoint = torch.load(checkpoint_path)
         model = get_model(checkpoint["model_name"])(model_task)
         model.load_from_checkpoint(checkpoint)
-        return model
+        if return_run_id:
+            return model, run_id
+        else:
+            return model
     elif len(runs) == 0:
         raise ValueError(f"Could not find run with experiment id {experiment_id} and name {mlflow_run_name}")
     else:
