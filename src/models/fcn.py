@@ -158,10 +158,14 @@ class Model_s(BaseModel):
 
     def __position_and_orientation_forward(self, x):
         out = self.layers(x)
-        out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
         # out = out + torch.tensor([0., 0., 0., 0.])[None, :, None, None].to(out.device)
-        result = torch.cat([torch.nn.functional.sigmoid(out[:, :2, ...]), out[:, 2:, ...]], axis = 1)
-        return result
+        out = torch.cat(
+            [
+                torch.nn.functional.sigmoid(out[:, :2, ...]),
+                out[:, 2:, ...]
+            ],
+            axis = 1)
+        out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
         return out
 
     def predict_pos_from_out(self, image, outs):
@@ -182,7 +186,7 @@ class Model_s(BaseModel):
     
     def predict_dist_from_outs(self, outs):
         pos_map = outs[:, 0, ...]
-        dist_map =outs[:, 1, ...]
+        dist_map = outs[:, 1, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         dist_scalars = (dist_map * pos_map_norm).sum(axis = (-1, -2))
         return dist_scalars.detach().cpu().numpy()
