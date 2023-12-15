@@ -86,7 +86,7 @@ class Model_s(BaseModel):
                 torch.nn.ReLU(),
                 torch.nn.BatchNorm2d(4),
                 torch.nn.Conv2d(4, 4, kernel_size=1, padding=0, stride=1),
-                torch.nn.Sigmoid()
+                # torch.nn.Sigmoid()
             )
 
             self.forward = self.__position_and_orientation_forward
@@ -158,8 +158,10 @@ class Model_s(BaseModel):
 
     def __position_and_orientation_forward(self, x):
         out = self.layers(x)
-        out = out * torch.tensor([1., self.MAX_DIST_M, 2., 2.])[None, :, None, None].to(out.device)
-        out = out + torch.tensor([0., 0., -1., -1.])[None, :, None, None].to(out.device)
+        out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
+        out = out + torch.tensor([0., 0., 0., 0.])[None, :, None, None].to(out.device)
+        result = torch.cat([out[:, :2, ...], torch.nn.functional.sigmoid(out[:, 2:, ...])], axis = 1)
+        return result
         return out
 
     def predict_pos_from_out(self, image, outs):
