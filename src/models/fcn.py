@@ -120,24 +120,22 @@ class Model_s(BaseModel):
     def __robot_distance_loss(self, batch, model_out):
         dist_out = model_out[:, 1:2, ...]
         dist_gt = batch["pose_rel"][:, 0].to(dist_out.device)
-        pos_out_norm = self.__pose_pred_norm_cache
-        dist_out_w = dist_out * pos_out_norm
-        dist_out_scalar = torch.mean(dist_out_w, axis = (-1, -2))
-        return mse_loss(input=dist_gt, target=dist_out_scalar[:, 0])
-    
+        pos_out_norm = self.__pose_pred_norm_cache.detach()
+        error = (dist_gt[:, None, None, None] - dist_out) ** 2
+        return (error * pos_out_norm).sum(axis = [-1, -2])
+
     def __robot_orientation_loss(self, batch, model_out):
         theta = batch["pose_rel"][:, -1].to(model_out.device)
         theta_cos = torch.cos(theta)
         theta_sin = torch.sin(theta)
-        pos_out_norm = self.__pose_pred_norm_cache
+        pos_out_norm = self.__pose_pred_norm_cache.detach()
 
         model_out_cos = model_out[:, 2:3, ...] * pos_out_norm
         model_out_sin = model_out[:, 3:, ...] * pos_out_norm
 
-        model_out_cos_scalar = model_out_cos.mean(axis = (-1, -2))
-        model_out_sin_scalar = model_out_sin.mean(axis = (-1, -2))
-
-        return mse_loss(model_out_cos_scalar[:, 0], theta_cos) + mse_loss(model_out_sin_scalar[:, 0], theta_sin)
+        cos_error = (theta_cos[:, None, None, None] - model_out_cos) ** 2
+        sin_error = (theta_sin[:, None, None, None] - model_out_sin) ** 2
+        return ((cos_error + sin_error) * pos_out_norm).sum(axis = [-1, -2])
     
 
     def __robot_pose_loss(self, batch, model_out : Tuple[torch.tensor, torch.tensor]):
@@ -184,7 +182,7 @@ class Model_s(BaseModel):
         pos_map = outs[:, 0, ...]
         dist_map =outs[:, 1, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
-        dist_scalars = (dist_map * pos_map_norm).mean(axis = (-1, -2))
+        dist_scalars = (dist_map * pos_map_norm).sum(axis = (-1, -2))
         return dist_scalars.detach().cpu().numpy()
     
     def predict_dist(self, image):
@@ -197,8 +195,8 @@ class Model_s(BaseModel):
         sin_map =outs[:, 3, ...]
 
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
-        cos_scalars = (cos_map * pos_map_norm).mean(axis = (-1, -2))
-        sin_scalars = (sin_map * pos_map_norm).mean(axis = (-1, -2))
+        cos_scalars = (cos_map * pos_map_norm).sum(axis = (-1, -2))
+        sin_scalars = (sin_map * pos_map_norm).sum(axis = (-1, -2))
         thetas = torch.atan2(sin_scalars, cos_scalars).detach().cpu().numpy()
         return thetas
     
