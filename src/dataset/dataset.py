@@ -133,6 +133,7 @@ class H5Dataset(torch.utils.data.Dataset):
         z_visible = (batch['proj_uvz'][2] > 0)
         batch['robot_visible'] = (u_visible & v_visible & z_visible)
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
+        batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
 
     
         return self.transform(batch)
