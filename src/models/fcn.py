@@ -151,7 +151,7 @@ class Model_s(BaseModel):
         proj_loss_norm = proj_loss
         dist_loss_norm = dist_loss / self.MAX_DIST_M
         ori_loss_norm = orientation_loss / 2
-        return .25 * proj_loss_norm + .2 * dist_loss_norm + .55 * ori_loss_norm, \
+        return .5 * proj_loss_norm + .3 * dist_loss_norm + .2 * ori_loss_norm, \
                     proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean()
 
 
