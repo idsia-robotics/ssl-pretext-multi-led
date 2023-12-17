@@ -31,13 +31,15 @@ def main():
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
-    fig, axs = plt.subplots(1,4)
+    
+    fig, axs = plt.subplots(1,4, gridspec_kw={"width_ratios" : [.05, .3, .3, .3]},
+                            figsize=  (1920 / 150, 1080 / 150), dpi=  150)
 
     widgets = [
-        ImageInferenceWidget(axs[0], "Camera feed"),
-        ModelProjOutput(axs[1], "Model output"),
-        DistanceInferenceWidget(axs[2]),
-        ModelDistanceOuput(axs[3])
+        DistanceInferenceWidget(axs[0], "Relative distance"),
+        ImageInferenceWidget(axs[1], "Camera feed"),
+        ModelProjOutput(axs[2], "Position output"),
+        ModelDistanceOuput(axs[3], "Distance output")
     ]
     
 

@@ -153,7 +153,7 @@ class DistanceWidget:
         self.axis.set_xticks([])
 
     def update(self, data):
-        self.dis_plot_gt.set_offsets([0, data["pose_rel"].squeeze()[0]])
+        self.dis_plot_gt.set_offsets([0, data["distance_rel"].squeeze()])
 
         
 class DistanceInferenceWidget(DistanceWidget):
