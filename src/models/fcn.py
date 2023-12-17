@@ -31,10 +31,10 @@ class Model_s(BaseModel):
         super(Model_s, self).__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, dilation=2),
+            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(6),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1, dilation=2),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(8),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
@@ -46,10 +46,10 @@ class Model_s(BaseModel):
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1, dilation = 2),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0, stride=1),
+            torch.nn.Conv2d(32, 32, kernel_size=3, padding=0, stride=1, dilation=2),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
