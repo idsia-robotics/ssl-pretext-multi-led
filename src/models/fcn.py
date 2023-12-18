@@ -95,7 +95,6 @@ class Model_s(BaseModel):
                 self.core_layers,
                 self.robot_pose_layer
             )
-            self.orientation_layers = torch.nn.LazyLinear(2)
             self.MAX_DIST_M = 3.
             
         
@@ -162,7 +161,7 @@ class Model_s(BaseModel):
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]),
-                torch.nn.functional.tanh(self.orientation_layers(out[:, 2:, ...])),
+                torch.nn.functional.tanh(out[:, 2:, ...]),
                 # out[:, 2:, ...]
             ],
             axis = 1)
