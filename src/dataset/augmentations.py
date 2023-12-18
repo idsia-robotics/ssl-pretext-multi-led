@@ -12,7 +12,8 @@ class RandomHorizontalFlip():
             batch['proj_uvz'][0] = batch['image'].shape[-1] - batch['proj_uvz'][0]
             batch['image'] = F.hflip(batch['image'])
             batch['pos_map'] = F.hflip(batch['pos_map'])
-
+            batch["pos_rel"][:, -1] = -batch["pos_rel"][:, -1]
+            batch["pos_rel"][:, 1] = -batch["pos_rel"][:, 1]
         return batch
     
 
