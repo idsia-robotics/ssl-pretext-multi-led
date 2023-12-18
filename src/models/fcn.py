@@ -132,8 +132,8 @@ class Model_s(BaseModel):
 
         model_out_cos = model_out[:, 2:3, ...]
         model_out_sin = model_out[:, 3:, ...]
-        cos_error = torch.sqrt((theta_cos[:, None, None, None] - model_out_cos) ** 2)
-        sin_error = torch.sqrt((theta_sin[:, None, None, None] - model_out_sin) ** 2)
+        cos_error = (theta_cos[:, None, None, None] - model_out_cos) ** 2
+        sin_error = (theta_sin[:, None, None, None] - model_out_sin) ** 2
         return ((cos_error + sin_error) * pos_out_norm).sum(axis = [-1, -2])
     
 
@@ -161,7 +161,8 @@ class Model_s(BaseModel):
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]),
-                torch.nn.functional.tanh(out[:, 2:, ...])
+                # torch.nn.functional.tanh(out[:, 2:, ...])
+                out[:, 2:, ...]
             ],
             axis = 1)
         out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
