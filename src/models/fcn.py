@@ -161,8 +161,8 @@ class Model_s(BaseModel):
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]),
-                # torch.nn.functional.tanh(out[:, 2:, ...])
-                out[:, 2:, ...]
+                torch.nn.functional.tanh(out[:, 2:, ...])
+                #out[:, 2:, ...]
             ],
             axis = 1)
         out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
