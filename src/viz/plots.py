@@ -1,21 +1,27 @@
 from matplotlib import pyplot as plt
 import numpy as np
+from itertools import product
 
 def theta_scatter_plot(ds):
 
     theta_true = ds["theta_true"]
     theta_pred = ds["theta_pred"]
-    fig, ax = plt.subplots(1,1, subplot_kw={'projection' : 'polar'})
+    fig, ax = plt.subplots(1,1)
     theta_to_deg = np.rad2deg(theta_pred)
     true_theta_to_deg = np.rad2deg(theta_true)
 
-    theta_to_deg[theta_to_deg < 0] = 360 + theta_to_deg[theta_to_deg < 0]
-    true_theta_to_deg[true_theta_to_deg < 0] = 360 + true_theta_to_deg[true_theta_to_deg < 0]
+    # theta_to_deg[theta_to_deg < 0] = 360 + theta_to_deg[theta_to_deg < 0]
+    # true_theta_to_deg[true_theta_to_deg < 0] = 360 + true_theta_to_deg[true_theta_to_deg < 0]
 
-    ax.scatter(theta_true, true_theta_to_deg, color = 'blue', label='Ideal')
-    ax.scatter(theta_true, theta_to_deg, color = 'red', label="Model")
+    # ax.scatter(theta_true, true_theta_to_deg, color = 'blue', label='Ideal')
+    # ax.scatter(theta_true, theta_to_deg, color = 'red', label="Model")
+    for k1, k2, in product([-1, 0, 1], [-1, 0, 1]):
+        ax.scatter(theta_true + k1 * 2 * np.pi, theta_pred + k2 * 2 * np.pi, color = 'blue')
+    ax.set_xlabel("True")
+    ax.set_ylabel("Predicted")
+    ax.set_xlim([-np.pi * 1.1, np.pi * 1.1])
+    ax.set_ylim([-np.pi * 1.1, np.pi * 1.1])
     fig.legend()
-    # ax.scatter(theta_true, theta_to_deg)
     return fig
 
 def proj_scatter_plot(ds):
@@ -58,3 +64,16 @@ def proj_error_distribution(ds):
     ax.set_xlabel("Error [px]")
 
     return fig
+
+def custom_scatter(x_key, y_key, title, **kwargs):
+
+    def scatter_fn(data):
+        x_data = data[x_key]
+        y_data = data[y_key]
+        fig, ax = plt.subplots(1,1)
+        ax.scatter(x_data, y_data)
+        ax.set_title(title)
+        ax.set(**kwargs)
+        ax.set_aspect('equal')
+        return fig
+    return scatter_fn
