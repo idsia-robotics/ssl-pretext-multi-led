@@ -130,11 +130,11 @@ class Model_s(BaseModel):
         theta_sin = torch.sin(theta)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
 
-        model_out_cos = model_out[:, 2:3, ...] * pos_out_norm
-        model_out_sin = model_out[:, 3:, ...] * pos_out_norm
+        model_out_cos = model_out[:, 2:3, ...]
+        model_out_sin = model_out[:, 3:, ...]
 
-        cos_error = (theta_cos[:, None, None, None] - model_out_cos) ** 2
-        sin_error = (theta_sin[:, None, None, None] - model_out_sin) ** 2
+        cos_error = torch.sqrt((theta_cos[:, None, None, None] - model_out_cos) ** 2)
+        sin_error = torch.sqrt((theta_sin[:, None, None, None] - model_out_sin) ** 2)
         return ((cos_error + sin_error) * pos_out_norm).sum(axis = [-1, -2])
     
 
