@@ -132,7 +132,6 @@ class Model_s(BaseModel):
 
         model_out_cos = model_out[:, 2:3, ...]
         model_out_sin = model_out[:, 3:, ...]
-
         cos_error = torch.sqrt((theta_cos[:, None, None, None] - model_out_cos) ** 2)
         sin_error = torch.sqrt((theta_sin[:, None, None, None] - model_out_sin) ** 2)
         return ((cos_error + sin_error) * pos_out_norm).sum(axis = [-1, -2])
@@ -162,7 +161,7 @@ class Model_s(BaseModel):
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]),
-                out[:, 2:, ...]
+                torch.nn.functional.tanh(out[:, 2:, ...])
             ],
             axis = 1)
         out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
@@ -195,7 +194,7 @@ class Model_s(BaseModel):
         outs = self(image)
         return self.predict_dist_from_outs(outs)
     
-    def predict_orientation_from_outs(self, outs):
+    def predict_orientation_from_outs(self, outs, return_cos_sin = False):
         pos_map = outs[:, 0, ...]
         cos_map =outs[:, 2, ...]
         sin_map =outs[:, 3, ...]
@@ -204,7 +203,11 @@ class Model_s(BaseModel):
         cos_scalars = (cos_map * pos_map_norm).sum(axis = (-1, -2))
         sin_scalars = (sin_map * pos_map_norm).sum(axis = (-1, -2))
         thetas = torch.atan2(sin_scalars, cos_scalars).detach().cpu().numpy()
-        return thetas
+        if not return_cos_sin:
+            return thetas
+        else:
+            return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
+
     
     def predict_orientation(self, image):
         outs = self(image)
