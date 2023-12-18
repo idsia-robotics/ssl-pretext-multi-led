@@ -9,7 +9,7 @@ import pandas as pd
 from src.metrics import angle_difference, mse
 
 from src.models import load_model_mlflow, load_model_raw
-from src.viz.plots import theta_scatter_plot, proj_scatter_plot, proj_error_distribution
+from src.viz.plots import theta_scatter_plot, proj_scatter_plot, proj_error_distribution, custom_scatter
 from matplotlib import pyplot as plt
 
 
@@ -40,24 +40,33 @@ def main():
         'dist_pred' : [],
         'theta_true': [],
         'theta_pred' : [],
+        'cos_pred' : [],
+        'sin_pred' : [],
     }
+
     for batch in tqdm.tqdm(dataloader):
         image = batch['image'].to(args.device)
         outs = model(image)
         proj_pred = model.predict_pos_from_out(image, outs)
         dist_pred = model.predict_dist_from_outs(outs)
-        theta_pred = model.predict_orientation_from_outs(outs)
+        theta_pred, cos_pred, sin_pred = model.predict_orientation_from_outs(outs, return_cos_sin = True)
         
         data['proj_pred'].extend(proj_pred)
         data['dist_pred'].extend(dist_pred)
         data['theta_pred'].extend(theta_pred)
+        data['cos_pred'].extend(cos_pred)
+        data['sin_pred'].extend(sin_pred)
 
         data['proj_true'].extend(batch['proj_uvz'][:, :2].numpy())
         data['dist_true'].extend(batch['distance_rel'].numpy())
         data['theta_true'].extend(batch['pose_rel'][:, -1].numpy())
     
+    
     for k, v in data.items():
         data[k] = np.stack(v)
+
+    data['cos_true'] = np.cos(data['theta_true'])
+    data['sin_true'] = np.sin(data['theta_true'])
 
     # ds = pd.DataFrame(data)
     mean_dist_error = np.abs(data["dist_true"] - data["dist_pred"]).mean()
@@ -73,6 +82,8 @@ def main():
         theta_scatter_plot,
         proj_scatter_plot,
         proj_error_distribution,
+        custom_scatter('cos_true', 'cos_pred', 'Cos scatter', xlim = [-1, 1], ylim=[-1,1]),
+        custom_scatter('sin_true', 'sin_pred', 'Sin scatter', xlim = [-1, 1], ylim=[-1,1])
     ]
 
     if using_mlflow:
