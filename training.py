@@ -46,14 +46,15 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
 
             
-            loss, led_loss, p_loss, d_loss, o_loss, led_losses = model.loss(batch, out)
+            loss, led_loss, p_loss, d_loss, o_loss, m_led_loss = model.loss(batch, out)
             loss = loss.mean()
             loss.backward()
             losses.append(loss.item())
             p_losses.append(p_loss.item())
             d_losses.append(d_loss.item())
             o_losses.append(o_loss.item())
-            multiple_led_losses.append([l.item() for l in led_losses])
+            led_losses.append(led_loss.item())
+            multiple_led_losses.append([l.item() for l in m_led_loss])
 
             dpreds = model.predict_dist_from_outs(out)
             tpreds=  model.predict_orientation_from_outs(out)
@@ -71,7 +72,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         mlflow.log_metric('train/loss/proj', mean(p_losses), e)
         mlflow.log_metric('train/loss/ori', mean(o_losses), e)
         mlflow.log_metric('train/loss/dist', mean(d_losses), e)
-        mlflow.log_metric('train/loss/led', mean(d_losses), e)
+        mlflow.log_metric('train/loss/led', mean(led_losses), e)
 
         for i, led_label, in enumerate(H5Dataset.LED_TYPES):
             mlflow.log_metric(f'train/loss/led/{led_label}', multiple_led_losses[:, i].mean(), e)
@@ -103,7 +104,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 
                 out = model.forward(image)
                 loss, p_loss, d_loss, o_loss, led_loss,\
-                      multiple_led_losses = model.loss(batch, out)
+                      m_led_loss = model.loss(batch, out)
                 loss = loss.mean()
                 losses.append(loss.item())
                 p_losses.append(p_loss.item())
@@ -127,7 +128,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             mlflow.log_metric('validation/loss/proj', mean(p_losses), e)
             mlflow.log_metric('validation/loss/ori', mean(o_losses), e)
             mlflow.log_metric('validation/loss/dist', mean(d_losses), e)
-            mlflow.log_metric('validation/loss/led', mean(d_losses), e)
+            mlflow.log_metric('validation/loss/led', mean(led_losses), e)
 
             led_preds = np.array(led_preds)
             led_trues = np.array(led_trues)
