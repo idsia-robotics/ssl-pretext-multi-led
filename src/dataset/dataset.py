@@ -24,7 +24,8 @@ class PositionMapComputing:
         return 1 - np.tanh(.1 * distances)
         
 class H5Dataset(torch.utils.data.Dataset):
-    
+    LED_TYPES = ["bb", "bl", "br", "bf", "tl", "tr"]
+
     def __init__(self, filename, keys=None,
                  transform=lambda x: x, libver='latest', target_robots = None,
                  only_visible_robots = False,
@@ -66,8 +67,7 @@ class H5Dataset(torch.utils.data.Dataset):
                         pose_rel_col_name = f"RM{source_rid}_pose_rel_RM{target_rid}"
                         self.proj_uvz_keys[source_rid].append(col_name)
                         self.pose_rel_keys[source_rid].append(pose_rel_col_name)
-                        
-                        for led_key in ["bb", "bl", "br", "bf", "tl", "tr"]:
+                        for led_key in self.LED_TYPES:
                             if not self.led_keys.get(source_rid):
                                 self.led_keys[source_rid] = []
                             self.led_keys[source_rid].append(f"RM{int(target_rid)}_led_{led_key}")
@@ -103,7 +103,7 @@ class H5Dataset(torch.utils.data.Dataset):
                                                      size=sample_count,
                                                      replace=False)
 
-        self.POS_ORB_SIZE = 40
+        self.POS_ORB_SIZE = 60
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
     def __getitem__(self, slice):
@@ -118,8 +118,10 @@ class H5Dataset(torch.utils.data.Dataset):
         for pose_rel_key in self.pose_rel_keys[slice_robot_id]:
             batch["pose_rel"] = torch.tensor(self.data[pose_rel_key][slice])
     
-        for led_key in self.led_keys[slice_robot_id]:
+        batch["led_mask"] = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.int8)
+        for i, led_key in enumerate(self.led_keys[slice_robot_id]):
             batch[led_key[4:]] = int(self.data[led_key][slice])
+            batch["led_mask"][i] = int(self.data[led_key][slice])
 
         for robot_id in self.robot_ids:
             batch[robot_id + "_pose"] = self.data[robot_id + "_pose"][slice].squeeze()
@@ -134,6 +136,7 @@ class H5Dataset(torch.utils.data.Dataset):
         batch['robot_visible'] = (u_visible & v_visible & z_visible)
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
         batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
+
 
     
         return self.transform(batch)
@@ -216,7 +219,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("/home/nicholascarlotti/uni/phd/robomaster_led/theta_rel_test_0.db3.h5")
+    dataset = H5Dataset("/home/nicholascarlotti/uni/phd/robomaster_led/robomaster_ds_testing.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()

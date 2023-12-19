@@ -14,6 +14,10 @@ class RandomHorizontalFlip():
             batch['pos_map'] = F.hflip(batch['pos_map'])
             batch["pose_rel"][-1] = -batch["pose_rel"][-1]
             batch["pose_rel"][1] = -batch["pose_rel"][1]
+            batch["led_br"] = 1 - batch["led_br"]
+            batch["led_bl"] = 1 - batch["led_bl"]
+            batch["led_tr"] = 1 - batch["led_tr"]
+            batch["led_tl"] = 1 - batch["led_tl"]
         return batch
     
 

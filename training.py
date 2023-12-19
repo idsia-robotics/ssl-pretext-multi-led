@@ -1,10 +1,10 @@
 from src.config.argument_parser import parse_args
 from src.models import get_model, BaseModel
-from src.dataset.dataset import get_dataset
+from src.dataset.dataset import H5Dataset, get_dataset
 import torch
 import torch.utils.data
 import mlflow
-from src.metrics import binary_auc, angle_difference
+from src.metrics import binary_auc, angle_difference, leds_auc
 from statistics import mean
 from tqdm import trange
 import numpy as np
@@ -20,6 +20,9 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         p_losses = []
         d_losses = []
         o_losses = []
+        led_losses = []
+        multiple_led_losses = []
+
 
         preds = []
         theta_preds = []
@@ -43,13 +46,14 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
 
             
-            loss, p_loss, d_loss, o_loss = model.loss(batch, out)
+            loss, led_loss, p_loss, d_loss, o_loss, led_losses = model.loss(batch, out)
             loss = loss.mean()
             loss.backward()
             losses.append(loss.item())
             p_losses.append(p_loss.item())
             d_losses.append(d_loss.item())
             o_losses.append(o_loss.item())
+            multiple_led_losses.append([l.item() for l in led_losses])
 
             dpreds = model.predict_dist_from_outs(out)
             tpreds=  model.predict_orientation_from_outs(out)
@@ -59,13 +63,19 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
         errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
         dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
+        multiple_led_losses = np.stack(multiple_led_losses, axis = 0)
         
         mlflow.log_metric('train/position/median_error', np.median(errors), e)
         mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
         mlflow.log_metric('train/loss', mean(losses), e)
-        mlflow.log_metric('train/loss/p', mean(p_losses), e)
-        mlflow.log_metric('train/loss/o', mean(o_losses), e)
-        mlflow.log_metric('train/loss/d', mean(d_losses), e)
+        mlflow.log_metric('train/loss/proj', mean(p_losses), e)
+        mlflow.log_metric('train/loss/ori', mean(o_losses), e)
+        mlflow.log_metric('train/loss/dist', mean(d_losses), e)
+        mlflow.log_metric('train/loss/led', mean(d_losses), e)
+
+        for i, led_label, in enumerate(H5Dataset.LED_TYPES):
+            mlflow.log_metric(f'train/loss/led/{led_label}', multiple_led_losses[:, i].mean(), e)
+
         mlflow.log_metric('train/lr', lr_schedule.get_last_lr()[0], e)
 
         if e % checkpoint_logging_rate == 0 or e == epochs - 1:
@@ -82,34 +92,52 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             p_losses = []
             d_losses = []
             o_losses = []
+            led_losses = []
             theta_preds = []
             theta_trues = []
+            led_preds = []
+            led_trues = []
 
             for batch in val_dataloader:
                 image = batch['image'].to(device)
                 
                 out = model.forward(image)
-                loss, p_loss, d_loss, o_loss = model.loss(batch, out)
+                loss, p_loss, d_loss, o_loss, led_loss,\
+                      multiple_led_losses = model.loss(batch, out)
                 loss = loss.mean()
-                loss.backward()
                 losses.append(loss.item())
                 p_losses.append(p_loss.item())
                 d_losses.append(d_loss.item())
                 o_losses.append(o_loss.item())
+                led_losses.append(led_loss.item())
+
                 pos_preds = model.predict_pos(image)
                 preds.extend(pos_preds)
                 trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
 
                 theta_trues.extend(batch["pose_rel"][:, -1])
                 theta_preds.extend(model.predict_orientation_from_outs(out))
+                led_preds.extend(model.predict_leds_from_outs(out))
+                led_trues.extend(batch["led_mask"])
 
             
             errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
             mlflow.log_metric('validation/position/median_error', np.median(errors), e)
             mlflow.log_metric('validation/orientation/mean_error', angle_difference(np.array(theta_preds), np.array(theta_trues)).mean(), e)
-            mlflow.log_metric('validation/loss/p', mean(p_losses), e)
-            mlflow.log_metric('validation/loss/o', mean(o_losses), e)
-            mlflow.log_metric('validation/loss/d', mean(d_losses), e)
+            mlflow.log_metric('validation/loss/proj', mean(p_losses), e)
+            mlflow.log_metric('validation/loss/ori', mean(o_losses), e)
+            mlflow.log_metric('validation/loss/dist', mean(d_losses), e)
+            mlflow.log_metric('validation/loss/led', mean(d_losses), e)
+
+            led_preds = np.array(led_preds)
+            led_trues = np.array(led_trues)
+            
+            led_auc, led_auc_scores = leds_auc(led_preds, led_trues)
+            mlflow.log_metric('validation/led/auc', led_auc, e)
+
+            for i, led_label in enumerate(H5Dataset.LED_TYPES):
+                mlflow.log_metric(f'validation/led/auc/{led_label}', led_auc_scores[i], e)
+
 
             # auc = binary_auc(preds, trues)
             # mlflow.log_metric('validation/presence/auc', auc, e)
