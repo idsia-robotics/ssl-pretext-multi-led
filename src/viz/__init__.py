@@ -181,3 +181,16 @@ class ModelDistanceOuput:
         out = model(data['image'])[..., 2:3, :, :].squeeze().detach().cpu().numpy()
         self.plot_obj.set_data(out)
 
+
+class RobotOrientationInferenceWidget(RobotOrientationWidget):
+    def __init__(self, plt_axis, title) -> None:
+        super().__init__(plt_axis, title)
+        self.pred_plot = plt_axis.scatter(0, 1.5, s = 250, color = 'red')
+
+    
+    def update(self, data, model):
+        super().update(data)
+        ori = model.predict_orientation(data["image"]).squeeze()
+        self.pred_plot.set_offsets([ori, 1.5])
+
+

@@ -6,7 +6,7 @@ import matplotlib.patches as patches
 from torch.utils.data import DataLoader
 import numpy as np
 from src.models import load_model_mlflow, load_model_raw
-from src.viz import ImageInferenceWidget, ModelProjOutput, DistanceInferenceWidget, ModelDistanceOuput
+from src.viz import ImageInferenceWidget, ModelProjOutput, DistanceInferenceWidget, ModelDistanceOuput, RobotOrientationInferenceWidget
 
 
 def get_led_indicator_color(led_status):
@@ -32,14 +32,26 @@ def main():
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
     
-    fig, axs = plt.subplots(1,4, gridspec_kw={"width_ratios" : [.05, .3, .3, .3]},
-                            figsize=  (1920 / 150, 1080 / 150), dpi=  150)
+    fig = plt.figure(figsize=(1920 / 150, 1080 / 150), dpi=150)
+    axs = []
+    axs.append(
+        plt.subplot(231)
+    )
+    axs.append(
+        plt.subplot(232)
+    )
+    axs.append(
+        plt.subplot(233)
+    )
+    axs.append(
+        plt.subplot(234, projection = 'polar')
+    )
 
     widgets = [
         DistanceInferenceWidget(axs[0], "Relative distance"),
         ImageInferenceWidget(axs[1], "Camera feed"),
         ModelProjOutput(axs[2], "Position output"),
-        ModelDistanceOuput(axs[3], "Distance output")
+        RobotOrientationInferenceWidget(axs[3], "Relative orientation prediction")
     ]
     
 

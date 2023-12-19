@@ -4,7 +4,7 @@ from src.dataset.dataset import get_dataset
 import torch
 import torch.utils.data
 import mlflow
-from src.metrics import binary_auc
+from src.metrics import binary_auc, angle_difference
 from statistics import mean
 from tqdm import trange
 import numpy as np
@@ -82,6 +82,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             p_losses = []
             d_losses = []
             o_losses = []
+            theta_preds = []
+            theta_trues = []
 
             for batch in val_dataloader:
                 image = batch['image'].to(device)
@@ -97,12 +99,18 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 pos_preds = model.predict_pos(image)
                 preds.extend(pos_preds)
                 trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
+
+                theta_trues.extend(batch["pose_rel"][:, -1])
+                theta_preds.extend(model.predict_orientation_from_outs(out))
+
             
             errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
             mlflow.log_metric('validation/position/median_error', np.median(errors), e)
+            mlflow.log_metric('validation/orientation/mean_error', angle_difference(np.array(theta_preds), np.array(theta_trues)).mean(), e)
             mlflow.log_metric('validation/loss/p', mean(p_losses), e)
             mlflow.log_metric('validation/loss/o', mean(o_losses), e)
             mlflow.log_metric('validation/loss/d', mean(d_losses), e)
+
             # auc = binary_auc(preds, trues)
             # mlflow.log_metric('validation/presence/auc', auc, e)
             mlflow.log_metric('validation/loss', mean(losses), e)
