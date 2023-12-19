@@ -172,7 +172,7 @@ class Model_s(BaseModel):
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        led_trues = batch["led_mask"] # BATCH_SIZE x 6
+        led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
         masked_led_outs = led_outs * self.__pose_pred_norm_cache.detach()
         led_preds = masked_led_outs.flatten(-2).max(-1)[0] # BATCH_SIZE x 6
