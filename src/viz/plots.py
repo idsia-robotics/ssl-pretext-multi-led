@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from itertools import product
+from src.metrics import angle_difference
 
 def theta_scatter_plot(ds):
 
@@ -21,6 +22,7 @@ def theta_scatter_plot(ds):
     ax.set_ylabel("Predicted")
     ax.set_xlim([-np.pi * 1.1, np.pi * 1.1])
     ax.set_ylim([-np.pi * 1.1, np.pi * 1.1])
+    ax.set_title("True relative orientation vs predicted")
     fig.legend()
     return fig
 
@@ -63,16 +65,47 @@ def proj_error_distribution(ds):
     ax.set_xlim(0, 360)
     ax.set_xlabel("Error [px]")
 
+
     return fig
 
-def custom_scatter(x_key, y_key, title, **kwargs):
+def orientation_error_distribution(ds):
+    theta_true = ds["theta_true"]
+    theta_pred = ds["theta_pred"]
+    errors = angle_difference(theta_true, theta_pred)
+    fig, ax = plt.subplots(1,1)
+
+
+    ax.hist(errors, bins = 300)
+    ax.set_xlim(0, np.pi)
+    ax.set_xlabel("Error [rad]")
+
+    return fig
+
+def orientation_error_by_orientation(ds):
+    theta_true = ds["theta_true"]
+    theta_pred = ds["theta_pred"]
+    error = angle_difference(theta_true, theta_pred)
+    fig, ax = plt.subplots(1,1)
+    ax.scatter(theta_true, error)
+    corr = np.corrcoef(theta_true, error)[0, 1]
+    ax.set_title(f"Orientation error by orientation. Pearson: {corr}")
+    ax.set_aspect('equal')
+    ax.set_xlabel("Theta true [rad]")
+    ax.set_ylabel("Error [rad]")
+    return fig
+
+def custom_scatter(x_key, y_key, title, correlation = False, **kwargs):
 
     def scatter_fn(data):
         x_data = data[x_key]
         y_data = data[y_key]
         fig, ax = plt.subplots(1,1)
         ax.scatter(x_data, y_data)
-        ax.set_title(title)
+        if correlation:
+            corr = np.corrcoef(x_data, y_data)
+            ax.set_title(title + f"\nPearson: {corr[0, 1]}")
+        else:
+            ax.set_title(title)
         ax.set(**kwargs)
         ax.set_aspect('equal')
         return fig
