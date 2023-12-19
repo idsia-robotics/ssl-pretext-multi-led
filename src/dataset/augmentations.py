@@ -26,6 +26,7 @@ class RandomHorizontalFlip():
             
             swap = batch["led_mask"][1].copy() 
             batch["led_mask"][1] = batch["led_mask"][2]
+            batch["led_mask"][2] = swap
 
             swap = batch["led_mask"][-2].copy() 
             batch["led_mask"][-2] = batch["led_mask"][-1]
