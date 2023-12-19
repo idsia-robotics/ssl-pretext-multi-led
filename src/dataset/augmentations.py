@@ -14,10 +14,22 @@ class RandomHorizontalFlip():
             batch['pos_map'] = F.hflip(batch['pos_map'])
             batch["pose_rel"][-1] = -batch["pose_rel"][-1]
             batch["pose_rel"][1] = -batch["pose_rel"][1]
-            batch["led_br"] = 1 - batch["led_br"]
-            batch["led_bl"] = 1 - batch["led_bl"]
-            batch["led_tr"] = 1 - batch["led_tr"]
-            batch["led_tl"] = 1 - batch["led_tl"]
+            
+            swap = batch["led_bl"].copy()
+            batch["led_bl"] = batch["led_br"]
+            batch["led_br"] = swap
+
+            swap = batch["led_tl"].copy()
+            
+            batch["led_tl"] = batch["led_tr"]
+            batch["led_tr"] = swap
+            
+            swap = batch["led_mask"][1].copy() 
+            batch["led_mask"][1] = batch["led_mask"][2]
+
+            swap = batch["led_mask"][-2].copy() 
+            batch["led_mask"][-2] = batch["led_mask"][-1]
+            batch["led_mask"][-1] = swap
         return batch
     
 
