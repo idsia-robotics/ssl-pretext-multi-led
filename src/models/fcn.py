@@ -157,7 +157,6 @@ class Model_s(BaseModel):
 
     def __position_and_orientation_forward(self, x):
         out = self.layers(x)
-        # out = out + torch.tensor([0., 0., 0., 0.])[None, :, None, None].to(out.device)
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]),
