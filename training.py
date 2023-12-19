@@ -54,8 +54,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             dpreds = model.predict_dist_from_outs(out)
             tpreds=  model.predict_orientation_from_outs(out)
             theta_preds.extend(tpreds)
-            dist_preds.extend(dpreds)
-            
+            dist_preds.extend(dpreds) 
             optimizer.step()
 
         errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
