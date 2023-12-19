@@ -9,7 +9,7 @@ import pandas as pd
 from src.metrics import angle_difference, mse
 
 from src.models import load_model_mlflow, load_model_raw
-from src.viz.plots import theta_scatter_plot, proj_scatter_plot, proj_error_distribution, custom_scatter
+from src.viz.plots import orientation_error_distribution, theta_scatter_plot, proj_scatter_plot, proj_error_distribution, custom_scatter, orientation_error_by_orientation
 from matplotlib import pyplot as plt
 
 
@@ -67,10 +67,11 @@ def main():
 
     data['cos_true'] = np.cos(data['theta_true'])
     data['sin_true'] = np.sin(data['theta_true'])
+    data['theta_error'] = angle_difference(data["theta_true"], data["theta_pred"])
 
     # ds = pd.DataFrame(data)
     mean_dist_error = np.abs(data["dist_true"] - data["dist_pred"]).mean()
-    mean_angle_error = np.mean(angle_difference(data["theta_true"], data["theta_pred"]))
+    mean_angle_error = np.mean(data['theta_error'])
     mean_proj_erorr = np.median(np.linalg.norm(data["proj_true"] - data["proj_pred"], axis = 1))
     print(f"Median proj error: {mean_proj_erorr}")
     print(f"Mean distance error: {mean_dist_error}")
@@ -82,8 +83,11 @@ def main():
         theta_scatter_plot,
         proj_scatter_plot,
         proj_error_distribution,
+        orientation_error_distribution,
         custom_scatter('cos_true', 'cos_pred', 'Cos scatter', xlim = [-1, 1], ylim=[-1,1]),
-        custom_scatter('sin_true', 'sin_pred', 'Sin scatter', xlim = [-1, 1], ylim=[-1,1])
+        custom_scatter('sin_true', 'sin_pred', 'Sin scatter', xlim = [-1, 1], ylim=[-1,1]),
+        orientation_error_by_orientation,
+        custom_scatter('theta_error', 'dist_true', 'Theta error vs Distance', xlabel = "Theta Error [rad]", ylabel = "Distance [m]", correlation=True)
     ]
 
     if using_mlflow:
