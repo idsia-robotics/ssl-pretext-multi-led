@@ -95,7 +95,7 @@ class Model_s(BaseModel):
                 self.core_layers,
                 self.robot_pose_layer
             )
-            self.MAX_DIST_M = 3.
+            self.MAX_DIST_M = 5.
         elif self.task == 'pose_and_led':
             self.robot_pose_and_led_layer = torch.nn.Sequential(
                 torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1),
@@ -111,7 +111,7 @@ class Model_s(BaseModel):
                 self.core_layers,
                 self.robot_pose_and_led_layer
             )
-            self.MAX_DIST_M = 3.
+            self.MAX_DIST_M = 5.
         
     
     def __robot_presence_loss(self, batch, y_pred):
@@ -172,22 +172,27 @@ class Model_s(BaseModel):
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
+        pos_trues = batch["pos_map"].to(led_outs.device)
+        pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False).float()
+        pos_trues = pos_trues / pos_trues.sum(axis = [-1, -2])[..., None, None]
+
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        masked_led_outs = led_outs * self.__pose_pred_norm_cache.detach()
-        led_preds = masked_led_outs.flatten(-2).max(-1)[0] # BATCH_SIZE x 6
+        masked_led_outs = led_outs * pos_trues[:, None, ...]
+        led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
             losses[i] = torch.nn.functional.binary_cross_entropy(
                 led_preds[:, i], led_trues[:, i].float()
             )
-        return sum(losses), losses
+        return sum(losses) / 6, losses
+
     
     def __robot_pose_and_leds_loss(self, batch, model_out):
         pose_loss, proj_loss, dist_loss, ori_loss = self.__robot_pose_loss(batch, model_out)
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
-        return 1. * pose_loss + 0. * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+        return .8 * pose_loss + 0.2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
             led_losses
 
 
@@ -207,9 +212,9 @@ class Model_s(BaseModel):
         out = self.layers(x)
         out = torch.cat(
             [
-                torch.nn.functional.sigmoid(out[:, :2, ...]),
-                torch.nn.functional.tanh(out[:, 2:4, ...]),
-                torch.nn.functional.sigmoid(out[:, 4:, ...]),
+                torch.nn.functional.sigmoid(out[:, :2, ...]), # pos and dist
+                torch.nn.functional.tanh(out[:, 2:4, ...]), # orientation
+                torch.nn.functional.sigmoid(out[:, 4:, ...]), # leds
                 
             ],
             axis = 1)
@@ -264,8 +269,9 @@ class Model_s(BaseModel):
         led_maps = outs[:, 4:, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
-        masked_maps = masked_maps.flatten(-2)
-        return masked_maps.max(-1)[0].detach().cpu().numpy()
+        # breakpoint()
+        return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+        # return masked_maps.max(-1)[0].detach().cpu().numpy()
 
 
     def predict_orientation(self, image):
