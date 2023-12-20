@@ -149,7 +149,7 @@ def main():
     args = parse_args("train")
     model_cls = get_model(args.model_type)
     model = model_cls(task = args.task).to(args.device)
-    train_dataset =     train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
+    train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
