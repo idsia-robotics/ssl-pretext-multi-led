@@ -203,7 +203,7 @@ class Model_s(BaseModel):
         loss = weights['pos'] * proj_loss_norm + weights['dist'] * dist_loss_norm + weights['ori'] * ori_loss_norm + \
         led_loss * weights['led']
         
-        return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach(),\
+        return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
             led_loss, led_losses
         # if epoch == -1:
         #     return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\

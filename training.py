@@ -168,7 +168,7 @@ def main():
     Validation data
     """
     if args.validation_dataset:
-        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=args.visible)
+        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=args.visible, compute_led_visibility=True)
         validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size = 64, num_workers=8)
     else:
         validation_dataloader = None
