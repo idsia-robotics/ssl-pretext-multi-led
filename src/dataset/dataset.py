@@ -25,13 +25,23 @@ class PositionMapComputing:
         
 class H5Dataset(torch.utils.data.Dataset):
     LED_TYPES = ["bb", "bl", "br", "bf", "tl", "tr"]
+    LED_VISIBILITY_RANGES_DEG = [
+        [[-180, -125], [125, 180]],
+        [[45, 135], [np.inf, np.inf]],
+        [[-135, -45], [np.inf, np.inf]],
+        [[-60, 60], [np.inf, np.inf]],
+        [[20, 160], [np.inf, np.inf]],
+        [[-160, -20], [np.inf, np.inf]],
+    ]
+    LED_VISIBILITY_RANGES_RAD = np.deg2rad(LED_VISIBILITY_RANGES_DEG)
 
     def __init__(self, filename, keys=None,
                  transform=lambda x: x, libver='latest', target_robots = None,
                  only_visible_robots = False,
                  robot_id = None,
                  sample_count = None,
-                 sample_count_seed = None):
+                 sample_count_seed = None,
+                 compute_led_visibility = False):
         
         filename = Path(filename)
         if not filename.is_file():
@@ -44,6 +54,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.transform = transform
         self.robot_ids = self.data.attrs["RIDs"]
         self.robot_ids_int = [int(rid[2:]) for rid in self.robot_ids]
+        self.compute_visibility_mask = compute_led_visibility
 
         self.proj_uvz_keys = {}
         self.pose_rel_keys = {}
@@ -103,7 +114,7 @@ class H5Dataset(torch.utils.data.Dataset):
                                                      size=sample_count,
                                                      replace=False)
 
-        self.POS_ORB_SIZE = 60
+        self.POS_ORB_SIZE = 200
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
     def __getitem__(self, slice):
@@ -135,9 +146,15 @@ class H5Dataset(torch.utils.data.Dataset):
         z_visible = (batch['proj_uvz'][2] > 0)
         batch['robot_visible'] = (u_visible & v_visible & z_visible)
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
-        batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
+        # batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
+        batch["distance_rel"] = batch["pose_rel"][0]
 
-
+        if self.compute_visibility_mask:
+            other_pose_rel = self.data["RM" + str(3 - slice_robot_id) + "_pose_rel_RM" + str(slice_robot_id)][slice]
+            other_theta_rel = np.arctan2(other_pose_rel[1], other_pose_rel[0])
+            led_visibility = (other_theta_rel >= self.LED_VISIBILITY_RANGES_RAD[:, :, 0]) &\
+                (other_theta_rel <= self.LED_VISIBILITY_RANGES_RAD[:, :, 1])
+            batch["led_visibility_mask"] = led_visibility[:, 0] | led_visibility[:, 1]
     
         return self.transform(batch)
     
@@ -157,7 +174,7 @@ class H5Dataset(torch.utils.data.Dataset):
         grid = np.stack([V, U], axis = 0)
         grid -= orb_size // 2
         distances = np.linalg.norm(grid, axis = 0, ord = 2)
-        return 1 - np.tanh(.1 * distances)
+        return 1 - np.tanh(.04 * distances)
 
 
     def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20):
@@ -180,12 +197,13 @@ class H5Dataset(torch.utils.data.Dataset):
 
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
                 sample_count = None, sample_count_seed = None,
-                only_visible_robots = False):
+                only_visible_robots = False,
+                compute_led_visibility = False):
     
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-            RandomHorizontalFlip((360, 640)),
+            # RandomHorizontalFlip((360, 640)),
             RandomRotTranslTransform(9, .1),
             SimplexNoiseTransform((360, 640))
         ])
@@ -198,17 +216,10 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                         transform=transform, only_visible_robots = only_visible_robots,
                         robot_id=camera_robot_id_int,
                         sample_count = sample_count,
-                        sample_count_seed = sample_count_seed)
+                        sample_count_seed = sample_count_seed,
+                        compute_led_visibility = compute_led_visibility)
 
     mask = torch.ones(len(dataset), dtype=torch.bool)
-    # if sample_count:
-    #     current_picked_idx = torch.where(mask)[0]
-    #     np.random.seed(sample_count_seed if sample_count_seed else 0)
-    #     current_picked_idx = np.random.choice(current_picked_idx, sample_count,
-    #                      replace=False)
-    #     mask[:] = False
-    #     mask[current_picked_idx] = True
-
     
 
     return torch.utils.data.Subset(dataset, torch.arange(len(dataset))[mask])
