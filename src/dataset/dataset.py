@@ -203,7 +203,7 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-            # RandomHorizontalFlip((360, 640)),
+#            RandomHorizontalFlip((360, 640)),
             RandomRotTranslTransform(9, .1),
             SimplexNoiseTransform((360, 640))
         ])

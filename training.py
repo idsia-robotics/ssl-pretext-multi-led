@@ -46,7 +46,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
 
             
-            loss, led_loss, p_loss, d_loss, o_loss, m_led_loss = model.loss(batch, out)
+            loss, led_loss, p_loss, d_loss, o_loss, m_led_loss = model.loss(batch, out, e)
             loss = loss.mean()
             loss.backward()
             losses.append(loss.item())
@@ -104,7 +104,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 
                 out = model.forward(image)
                 loss, p_loss, d_loss, o_loss, led_loss,\
-                      m_led_loss = model.loss(batch, out)
+                      m_led_loss = model.loss(batch, out, e)
                 loss = loss.mean()
                 losses.append(loss.item())
                 p_losses.append(p_loss.item())

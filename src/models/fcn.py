@@ -188,12 +188,17 @@ class Model_s(BaseModel):
         return sum(losses) / 6, losses
 
     
-    def __robot_pose_and_leds_loss(self, batch, model_out):
+    def __robot_pose_and_leds_loss(self, batch, model_out, epoch):
         pose_loss, proj_loss, dist_loss, ori_loss = self.__robot_pose_loss(batch, model_out)
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
-        return .8 * pose_loss + 0.2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+        if epoch == -1:
+            return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
             led_losses
+        else:
+            return .8 * pose_loss + .2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+            led_losses
+
 
 
     def __position_and_orientation_forward(self, x):
