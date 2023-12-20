@@ -45,8 +45,14 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             theta_trues.extend(batch["pose_rel"][:, -1])
 
 
-            
-            loss, led_loss, p_loss, d_loss, o_loss, m_led_loss = model.loss(batch, out, e)
+            w = {
+                'pos' : .25,
+                'dist' : .25,
+                'ori' : .25,
+                'led' : .25
+            }
+            loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e,
+                                                                            weights = w)
             loss = loss.mean()
             loss.backward()
             losses.append(loss.item())
@@ -98,13 +104,18 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             theta_trues = []
             led_preds = []
             led_trues = []
+            w = {
+                'pos' : .25,
+                'dist' : .25,
+                'ori' : .25,
+                'led' : .25
+            }
 
             for batch in val_dataloader:
                 image = batch['image'].to(device)
                 
                 out = model.forward(image)
-                loss, p_loss, d_loss, o_loss, led_loss,\
-                      m_led_loss = model.loss(batch, out, e)
+                loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e, weights = w)
                 loss = loss.mean()
                 losses.append(loss.item())
                 p_losses.append(p_loss.item())
@@ -150,7 +161,7 @@ def main():
     model_cls = get_model(args.model_type)
     model = model_cls(task = args.task).to(args.device)
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
-                                only_visible_robots=args.visible)
+                                only_visible_robots=args.visible, compute_led_visibility=True)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
     """

@@ -164,7 +164,7 @@ class Model_s(BaseModel):
         # distance between the camera and the robot will be in the dataset.
         proj_loss_norm = proj_loss
         dist_loss_norm = dist_loss / self.MAX_DIST_M
-        ori_loss_norm = orientation_loss / 2
+        ori_loss_norm = orientation_loss / 4
         return .5 * proj_loss_norm + .3 * dist_loss_norm + .2 * ori_loss_norm, \
                     proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean()
 
@@ -182,22 +182,35 @@ class Model_s(BaseModel):
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
+            led_mask = batch["led_visibility_mask"].to(model_out.device)[:, i]
             losses[i] = torch.nn.functional.binary_cross_entropy(
-                led_preds[:, i], led_trues[:, i].float()
-            )
+                led_preds[:, i], led_trues[:, i].float(), reduction='none'
+            ) * led_mask
+            losses[i] = losses[i].sum() / led_mask.sum()
         return sum(losses) / 6, losses
 
     
-    def __robot_pose_and_leds_loss(self, batch, model_out, epoch):
-        pose_loss, proj_loss, dist_loss, ori_loss = self.__robot_pose_loss(batch, model_out)
+    def __robot_pose_and_leds_loss(self, batch, model_out, epoch, weights):
+        proj_loss = self.__robot_position_loss(batch, model_out[:, :1, ...])
+        dist_loss = self.__robot_distance_loss(batch, model_out)
+        orientation_loss = self.__robot_orientation_loss(batch, model_out)
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
-        if epoch == -1:
-            return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
-            led_losses
-        else:
-            return .8 * pose_loss + .2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
-            led_losses
+        proj_loss_norm = proj_loss
+        dist_loss_norm = dist_loss / self.MAX_DIST_M
+        ori_loss_norm = orientation_loss / 2
+
+        loss = weights['pos'] * proj_loss_norm + weights['dist'] * dist_loss_norm + weights['ori'] * ori_loss_norm + \
+        led_loss * weights['led']
+        
+        return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach(),\
+            led_loss, led_losses
+        # if epoch == -1:
+        #     return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+        #     led_losses
+        # else:
+        #     return .8 * pose_loss + .2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+        #     led_losses
 
 
 
