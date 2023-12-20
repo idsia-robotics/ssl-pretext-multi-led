@@ -173,22 +173,29 @@ class Model_s(BaseModel):
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
-
-        masked_led_outs = led_outs * self.__pose_pred_norm_cache.detach()
-        led_preds = masked_led_outs.flatten(-2).max(-1)[0] # BATCH_SIZE x 6
+        pos_true = batch["pos_map"].to(model_out.device)
+        pos_true = resize(pos_true, model_out.shape[-2:], antialias=False).float()
+        #masked_led_outs = led_outs * self.__pose_pred_norm_cache.detach()
+        masked_led_outs = pos_true[:, None, ...].to(led_outs.device) * led_outs
+        led_preds = masked_led_outs.sum(axis = [-1, -2])
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
             losses[i] = torch.nn.functional.binary_cross_entropy(
                 led_preds[:, i], led_trues[:, i].float()
             )
-        return sum(losses), losses
+        return sum(losses) / 6, losses
     
-    def __robot_pose_and_leds_loss(self, batch, model_out):
+    def __robot_pose_and_leds_loss(self, batch, model_out, epoch):
         pose_loss, proj_loss, dist_loss, ori_loss = self.__robot_pose_loss(batch, model_out)
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
-        return 1. * pose_loss + 0. * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+        if epoch == -1:
+            return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
             led_losses
+        else:
+            return .8 * pose_loss + .2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
+            led_losses
+
 
 
     def __position_and_orientation_forward(self, x):
