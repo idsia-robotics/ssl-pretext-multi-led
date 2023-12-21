@@ -183,9 +183,9 @@ class Model_s(BaseModel):
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
             led_mask = batch["led_visibility_mask"].to(model_out.device)[:, i]
-            losses[i] = torch.nn.functional.binary_cross_entropy(
+            losses[i] = (torch.nn.functional.binary_cross_entropy(
                 led_preds[:, i], led_trues[:, i].float(), reduction='none'
-            ) * led_mask.float() / (led_mask.sum() + 1e-15)
+            ) * led_mask.float() / (led_mask.sum() + 1e-15)).sum()
             # losses[i] = losses[i].sum() / led_mask.sum()
         return sum(losses) / 6, losses
 
