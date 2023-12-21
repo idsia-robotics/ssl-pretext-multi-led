@@ -46,10 +46,10 @@ class Model_s(BaseModel):
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1, dilation = 2),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=6, stride=1, dilation = 3),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=3, padding=0, stride=1, dilation=2),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=4, stride=1, dilation=2),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
@@ -183,9 +183,9 @@ class Model_s(BaseModel):
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
             led_mask = batch["led_visibility_mask"].to(model_out.device)[:, i]
-            losses[i] = torch.nn.functional.binary_cross_entropy(
+            losses[i] = (torch.nn.functional.binary_cross_entropy(
                 led_preds[:, i], led_trues[:, i].float(), reduction='none'
-            ) * led_mask.float() / (led_mask.sum() + 1e-15)
+            ) * led_mask.float() / (led_mask.sum() + 1e-15)).sum()
             # losses[i] = losses[i].sum() / led_mask.sum()
         return sum(losses) / 6, losses
 
@@ -300,8 +300,11 @@ class Model_s(BaseModel):
         outs = self(image)
         return self.predict_leds_from_outs(outs)
     
-
-
-
-
-
+    def predict_leds_with_gt_pos(self, batch, image):
+        outs = self(image)
+        pos_map = batch["pos_map"]
+        pos_map = resize(pos_map, outs.shape[-2:], antialias=False).float()
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = [-1, -2], keepdim=True)
+        led_maps = outs[:, 4:, ...]
+        masked_led = led_maps * pos_map_norm[:, None, ...]
+        return masked_led.sum(axis = [-1, -2]).detach().cpu().numpy()
