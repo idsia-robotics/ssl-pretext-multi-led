@@ -24,7 +24,7 @@ def main():
 
     if args.checkpoint_id:
         model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_task=args.task)
+                        model_task=args.task, return_run_id=True)
         using_mlflow = True
     else:
         model = load_model_raw(args.checkpoint_path, model_task=args.task)
@@ -61,7 +61,7 @@ def main():
     if using_mlflow:
         with mlflow.start_run(run_id=run_id) as run:
             for i, led_label in enumerate(H5Dataset.LED_TYPES):
-                mlflow.log_metric(f"testing/led/{led_label}/", aucs[i])
+                mlflow.log_metric(f"testing/led/{led_label}", aucs[i])
 
 if __name__ == "__main__":
     main()
