@@ -183,10 +183,9 @@ class Model_s(BaseModel):
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
-            led_mask = batch["led_visibility_mask"].to(model_out.device)[:, i]
-            losses[i] = (torch.nn.functional.binary_cross_entropy(
-                led_preds[:, i], led_trues[:, i].float(), reduction='none'
-            ) * led_mask.float() / (led_mask.sum() + 1e-15)).sum()
+            losses[i] = torch.nn.functional.binary_cross_entropy(
+                led_preds[:, i], led_trues[:, i].float()
+            )
             # losses[i] = losses[i].sum() / led_mask.sum()
         return sum(losses) / 6, losses
 
@@ -252,6 +251,10 @@ class Model_s(BaseModel):
         indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
         indexes /= np.array([out_map_shape[1], out_map_shape[0]])
         indexes *= np.array([image.shape[-1], image.shape[-2]])
+
+        y_scale_f = image.shape[0] / out_map_shape[0]
+        x_scale_f = image.shape[1] / out_map_shape[1]
+        indexes += np.array([x_scale_f, y_scale_f]) / 2
         return indexes.astype(np.int32)
     
     def predict_pos(self, image):
@@ -303,7 +306,8 @@ class Model_s(BaseModel):
     
     def predict_leds_with_gt_pos(self, batch, image):
         outs = self(image)
-        pos_map = batch["pos_map"]
+        # breakpoint()
+        pos_map = batch["pos_map"].to(outs.device)
         pos_map = resize(pos_map, outs.shape[-2:], antialias=False).float()
         pos_map_norm = pos_map / torch.sum(pos_map, axis = [-1, -2], keepdim=True)
         led_maps = outs[:, 4:, ...]
