@@ -9,11 +9,22 @@ from statistics import mean
 from tqdm import trange
 import numpy as np
 
+
 def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epochs, lr = .001, validation_rate = 10,
                checkpoint_logging_rate = 10):
 
     optimizer = model.optimizer(lr)
-    lr_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 2e-5, -1)
+
+    # lr_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 2e-5, -1)
+
+    lr_schedule = torch.optim.lr_scheduler.SequentialLR(
+        optimizer,
+        [
+            torch.optim.lr_scheduler.ConstantLR(optimizer, .1, total_iters = 5),
+            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 2e-5, -1)
+        ],
+        milestones=[3,]
+    )
     
     for e in trange(epochs):
         losses = []
