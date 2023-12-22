@@ -33,7 +33,7 @@ class H5Dataset(torch.utils.data.Dataset):
         [[0, 180], [np.inf, np.inf]],
         [[-180, -0], [np.inf, np.inf]],
     ]
-    POS_ORB_SIZE = 20
+    POS_ORB_SIZE = 640 // 8
 
     # Use this for good visibility
     # LED_VISIBILITY_RANGES_DEG = [
@@ -204,7 +204,10 @@ class H5Dataset(torch.utils.data.Dataset):
                 result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
             except:
                 breakpoint()
-        return result[padding:-padding, padding:-padding]
+        map = result[padding:-padding, padding:-padding]
+        if map.sum() == 0:
+            breakpoint()
+        return map
     
 
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
@@ -216,7 +219,7 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     if augmentations:
         transform = torchvision.transforms.Compose([
 #            RandomHorizontalFlip((360, 640)),
-            RandomRotTranslTransform(9, .1),
+            RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE),
             SimplexNoiseTransform((360, 640))
         ])
 
