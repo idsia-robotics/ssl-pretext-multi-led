@@ -31,6 +31,8 @@ def parse_args(*config):
         parser.add_argument("--save", default = None, type= Path)
         parser.add_argument("-r", "--robot-id", type=str, default="RM1")
         parser.add_argument("-tr", "--target-robot-id", type=str, default="RM2")
+        parser.add_argument("--receptive-field", default=None, type=float)
+
 
 
     if 'train' in config:

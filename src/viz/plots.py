@@ -94,7 +94,7 @@ def orientation_error_by_orientation(ds):
     ax.set_ylabel("Error [rad]")
     return fig
 
-def custom_scatter(x_key, y_key, title, correlation = False, **kwargs):
+def custom_scatter(x_key, y_key, title, correlation = False, plot_name = None, **kwargs):
 
     def scatter_fn(data):
         x_data = data[x_key]
@@ -109,4 +109,6 @@ def custom_scatter(x_key, y_key, title, correlation = False, **kwargs):
         ax.set(**kwargs)
         ax.set_aspect('equal')
         return fig
+    if plot_name:
+        scatter_fn.__name__ = plot_name
     return scatter_fn

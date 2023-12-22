@@ -4,3 +4,4 @@ data/
 mlruns/
 logging/
 /**/*.mp4
+plots/

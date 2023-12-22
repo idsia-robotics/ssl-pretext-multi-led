@@ -1,13 +1,11 @@
 import matplotlib.patches as patches
 import numpy as np
-
+from src.dataset.dataset import H5Dataset
 
 class RobotOrientationWidget:
 
     def __init__(self, plt_axis, title) -> None:
         self.axis = plt_axis
-        print(plt_axis.properties())
-        # assert plt_axis.properties()['projection'] == "polar"
         self.plot_obj = plt_axis.scatter(0, 1.5, s = 250)
         self.axis.set_title(title)
 
@@ -19,7 +17,7 @@ class RobotOrientationWidget:
 
 class ImageWidget:
 
-    def __init__(self, plt_axis, title) -> None:
+    def __init__(self, plt_axis, title,  receptive_field = None) -> None:
         self.axis = plt_axis
         self.plot_obj = plt_axis.imshow(np.zeros((360, 640, 3), dtype=np.uint8))
         self.axis.set_title(title)
@@ -27,10 +25,19 @@ class ImageWidget:
                               top = False, right = False,
                               labelleft = False, labelbottom = False) 
         self.gt_pos_scatter = self.axis.scatter(0, 0, s = 1001, facecolor = 'none', edgecolors = 'blue')
+
+        self.receptive_field = receptive_field
+        if receptive_field:
+            self.rf_plot = patches.Rectangle((0, 0), receptive_field, receptive_field, linewidth=1, edgecolor = 'blue', facecolor = 'none')   
+            self.axis.add_patch(self.rf_plot)
     
     def update(self, data):
         self.plot_obj.set_data(data['image'].squeeze().cpu().numpy().transpose(1, 2, 0))
         self.gt_pos_scatter.set_offsets(data['proj_uvz'][:2])
+
+        if self.receptive_field:
+            self.rf_plot.set_xy((data['proj_uvz'][0][:2] - self.receptive_field / 2))
+
 
 
 class LedStatusWidget:
@@ -40,18 +47,26 @@ class LedStatusWidget:
         self.axis.invert_yaxis()
         self.plot_obj = plt_axis.imshow(np.zeros((300, 300, 3), dtype=np.uint8))
         self.axis.set_title(title)
-        self.led_front = patches.Rectangle((110, 230), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
-        self.led_right = patches.Rectangle((100, 150), 20, 80, linewidth=1, edgecolor = 'black', facecolor = 'white')
-        self.led_left = patches.Rectangle((180, 150), 20, 80, linewidth=1, edgecolor = 'black', facecolor = 'white')
-        self.led_back = patches.Rectangle((110, 130), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
+        self.led_back = patches.Rectangle((110, 230), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
+        self.led_left = patches.Rectangle((100, 150), 20, 80, linewidth=1, edgecolor = 'black', facecolor = 'white')
+        self.led_right = patches.Rectangle((180, 150), 20, 80, linewidth=1, edgecolor = 'black', facecolor = 'white')
+        self.led_front = patches.Rectangle((110, 130), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
         self.led_top_left = patches.Rectangle((45, 50), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
         self.led_top_right = patches.Rectangle((175, 50), 80, 20, linewidth=1, edgecolor = 'black', facecolor = 'white')
+        self.front_label = self.axis.text(125, 270, "BACK", color = "white")
+        self.front_label = self.axis.text(125, 110, "FRONT", color = "white")
+        self.front_label = self.axis.text(220, 175, "RIGHT", color = "white")
+        self.front_label = self.axis.text(40, 175, "LEFT", color = "white")
+
+        direction_arrow = patches.Polygon(((130,180), (150,160), (170, 180)), color = 'red')
+
         self.axis.add_patch(self.led_front)
         self.axis.add_patch(self.led_right)
         self.axis.add_patch(self.led_left)
         self.axis.add_patch(self.led_back)
         self.axis.add_patch(self.led_top_left)
         self.axis.add_patch(self.led_top_right)
+        self.axis.add_patch(direction_arrow)
         self.axis.tick_params(bottom = False, left = False,
                               top = False, right = False,
                               labelleft = False, labelbottom = False) 
@@ -70,17 +85,28 @@ class LedStatusWidget:
 
 class ProjectionGTWidget:
 
-    def __init__(self, plt_axis, title = '') -> None:
+    def __init__(self, plt_axis, title = '', receptive_field = None) -> None:
         self.axis = plt_axis
         self.plot_obj = plt_axis.imshow(np.zeros((360, 640, 3), dtype=np.uint8),
                                         vmin = 0, vmax = 1, cmap = 'viridis')
         self.axis.set_title(title)
-        self.pos_scatter = self.axis.scatter(0, 0, s = 1001,
+        orb_size = H5Dataset.POS_ORB_SIZE
+        scatter_size = (np.sqrt(2) * orb_size / 2) ** 2 * np.pi / 72
+        self.pos_scatter = self.axis.scatter(0, 0, s = scatter_size,
                                              facecolor = 'none', edgecolors = 'blue')
+        
+        self.receptive_field = receptive_field
+        if receptive_field:
+            self.rf_plot = patches.Rectangle((0, 0), receptive_field, receptive_field, linewidth=1, edgecolor = 'blue', facecolor = 'none')   
+            self.axis.add_patch(self.rf_plot)
 
     def update(self, data):
         self.plot_obj.set_data(data['pos_map'].squeeze().cpu().numpy())
         self.pos_scatter.set_offsets(data['proj_uvz'][:2])
+
+        if self.receptive_field:
+            self.rf_plot.set_xy((data['proj_uvz'][0][:2] - self.receptive_field / 2))
+
         
 class PositionGTWidget:
     def __init__(self, plt_axis, title = '') -> None:
@@ -166,7 +192,6 @@ class DistanceInferenceWidget(DistanceWidget):
     def update(self, data, model):
         super().update(data)
         dist_pred = model.predict_dist(data['image']).squeeze()
-        print(dist_pred)
         self.dis_plot_pred.set_offsets([0, dist_pred])
 
 class ModelDistanceOuput:
@@ -193,4 +218,62 @@ class RobotOrientationInferenceWidget(RobotOrientationWidget):
         ori = model.predict_orientation(data["image"]).squeeze()
         self.pred_plot.set_offsets([ori, 1.5])
 
+
+class RobotLedInferenceWidget:
+    def __init__(self, plt_axes, title = '') -> None:
+        self.axes = plt_axes
+        self.image_plot = self.axes[4].imshow(np.zeros((360, 640, 3)))
+        led_out_idx = [0, 1, 2, 3, 5, 7]
+        self.led_plots = [self.axes[i].imshow(np.zeros((360, 640, 1)), cmap ='viridis', vmin = 0, vmax = 1) for i in led_out_idx]
+
+        self.axes[0].set_title("TOP LEFT")
+        self.axes[1].set_title("FRONT")
+        self.axes[2].set_title("TOP RIGHT")
+        self.axes[3].set_title("LEFT")
+        self.axes[5].set_title("RIGHT")
+        self.axes[7].set_title("BACK")
+
+        self.thresholds = np.array([0.70342696, 0.852335, 0.7073505, 0.76392925, 0.52581376, 0.66283405])
+
+
+        orb_size = H5Dataset.POS_ORB_SIZE
+        scatter_size = (np.sqrt(2) * orb_size / 2) ** 2 * np.pi / 72
+        print(scatter_size)
+
+        self.pos_scatters = [self.axes[i].scatter(0,0, facecolor = 'none', color = 'red', s = scatter_size, ) for i in led_out_idx]
+
+        self.led_status_widget = LedStatusWidget(self.axes[-1], title='LED status')
+        self.proj_gt_widget = ProjectionGTWidget(self.axes[-3], 'GT pos') 
+
+        # self.axes.set_title(title)
+        for ax in self.axes:
+            ax.tick_params(bottom = False, left = False, top = False, right = False, labelleft = False, labelbottom = False) 
+
+    def update(self, data, model):
+        out = model(data['image'])[..., 4:, :, :].squeeze().detach().cpu().numpy()
+        preds = model.predict_leds_with_gt_pos(data, data['image'])[0]
+
+        # out[out < self.thresholds[:, None, None]] = 0
+        self.image_plot.set_data(data['image'].squeeze().numpy().transpose(1, 2, 0))
+        self.led_plots[0].set_data(out[-2])
+        self.led_plots[1].set_data(out[3])
+        self.led_plots[2].set_data(out[-1])
+        self.led_plots[3].set_data(out[1])
+        self.led_plots[4].set_data(out[2])
+        self.led_plots[5].set_data(out[0])
+
+        self.led_plots[0].axes.set_title(f"TOP LEFT {preds[-2]:.2f}")
+        self.led_plots[1].axes.set_title(f"FRONT {preds[3]:.2f}")
+        self.led_plots[2].axes.set_title(f"TOP RIGHT {preds[-1]:.2f}")
+        self.led_plots[3].axes.set_title(f"LEFT {preds[1]:.2f}")
+        self.led_plots[4].axes.set_title(f"RIGHT {preds[2]:.2f}")
+        self.led_plots[5].axes.set_title(f"BACK {preds[0]:.2f}")
+
+
+
+        for pos_scatter in self.pos_scatters:
+            proj_uv = data['proj_uvz'][:2]
+            pos_scatter.set_offsets(proj_uv)
+        self.led_status_widget.update(data)
+        self.proj_gt_widget.update(data)
 
