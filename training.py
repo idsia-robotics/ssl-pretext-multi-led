@@ -21,7 +21,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         optimizer,
         [
             torch.optim.lr_scheduler.ConstantLR(optimizer, .1, total_iters = 5),
-            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 2e-5, -1)
+            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 1e-5, -1)
         ],
         milestones=[3,]
     )
