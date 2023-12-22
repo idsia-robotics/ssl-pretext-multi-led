@@ -26,13 +26,24 @@ class PositionMapComputing:
 class H5Dataset(torch.utils.data.Dataset):
     LED_TYPES = ["bb", "bl", "br", "bf", "tl", "tr"]
     LED_VISIBILITY_RANGES_DEG = [
-        [[-180, -125], [125, 180]],
-        [[45, 135], [np.inf, np.inf]],
-        [[-135, -45], [np.inf, np.inf]],
-        [[-60, 60], [np.inf, np.inf]],
-        [[20, 160], [np.inf, np.inf]],
-        [[-160, -20], [np.inf, np.inf]],
+        [[-180, -100], [100, 180]],
+        [[55, 125], [np.inf, np.inf]],
+        [[-125, -45], [np.inf, np.inf]],
+        [[-80, 80], [np.inf, np.inf]],
+        [[0, 180], [np.inf, np.inf]],
+        [[-180, -0], [np.inf, np.inf]],
     ]
+    POS_ORB_SIZE = 20
+
+    # Use this for good visibility
+    # LED_VISIBILITY_RANGES_DEG = [
+    #     [[-180, -130], [130, 180]],
+    #     [[75, 95], [np.inf, np.inf]],
+    #     [[-95, -75], [np.inf, np.inf]],
+    #     [[-50, 50], [np.inf, np.inf]],
+    #     [[30, 150], [np.inf, np.inf]],
+    #     [[-150, -30], [np.inf, np.inf]],
+    # ]
     LED_VISIBILITY_RANGES_RAD = np.deg2rad(LED_VISIBILITY_RANGES_DEG)
 
     def __init__(self, filename, keys=None,
@@ -114,7 +125,6 @@ class H5Dataset(torch.utils.data.Dataset):
                                                      size=sample_count,
                                                      replace=False)
 
-        self.POS_ORB_SIZE = 200
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
     def __getitem__(self, slice):
@@ -148,6 +158,7 @@ class H5Dataset(torch.utils.data.Dataset):
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
         # batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
         batch["distance_rel"] = batch["pose_rel"][0]
+        batch["robot_id"] = slice_robot_id
 
         if self.compute_visibility_mask:
             other_pose_rel = self.data["RM" + str(3 - slice_robot_id) + "_pose_rel_RM" + str(slice_robot_id)][slice]
@@ -174,6 +185,7 @@ class H5Dataset(torch.utils.data.Dataset):
         grid = np.stack([V, U], axis = 0)
         grid -= orb_size // 2
         distances = np.linalg.norm(grid, axis = 0, ord = 2)
+        return (distances <= orb_size / 2).astype(np.float32)
         return 1 - np.tanh(.04 * distances)
 
 

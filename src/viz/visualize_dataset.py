@@ -37,10 +37,10 @@ def main():
     )
 
     distance_widget = DistanceWidget(axs[0], title="Relative distance")
-    image_widget = ImageWidget(axs[1], title = f"{args.robot_id}: Camera feed")
+    image_widget = ImageWidget(axs[1], title = f"{args.robot_id}: Camera feed", receptive_field= args.receptive_field)
     led_status_widget = LedStatusWidget(axs[2], f"{args.target_robot_id}: Led status")
     orientation_widget = RobotOrientationWidget(axs[3], title = f"{args.target_robot_id}: Relative orientation w.r.t. camera")
-    proj_gt_widget = ProjectionGTWidget(axs[4])
+    proj_gt_widget = ProjectionGTWidget(axs[4], receptive_field = args.receptive_field)
     position_gt_widget = PositionGTWidget(axs[5])
 
 
