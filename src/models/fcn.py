@@ -6,6 +6,7 @@ from torch.nn.functional import mse_loss
 from torchvision.transforms.functional import resize
 from numpy import unravel_index, stack
 import numpy as np
+from torchvision.transforms import InterpolationMode
 
 class RangeRescaler(torch.nn.Module):
 
@@ -31,25 +32,25 @@ class Model_s(BaseModel):
         super(Model_s, self).__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=5, padding=2, stride=1, dilation=3),
+            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(6),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=5, padding=3, stride=1, dilation=3),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(8),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(8, 16, kernel_size=5, padding=3, stride=1, dilation=3),
+            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(16, 32, kernel_size=5, padding=3, stride=1, dilation=2),
+            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 32, kernel_size=3, padding=2, stride=1, dilation=2),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=6, stride=1, dilation = 3),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=3, padding=2, stride=1, dilation=2),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=4, stride=1, dilation=2),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
@@ -173,7 +174,7 @@ class Model_s(BaseModel):
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
         pos_trues = batch["pos_map"].to(led_outs.device)
-        pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False).float()
+        pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False, interpolation=InterpolationMode.NEAREST_EXACT).float()
         pos_trues = pos_trues / pos_trues.sum(axis = [-1, -2])[..., None, None]
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
