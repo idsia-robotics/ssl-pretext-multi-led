@@ -27,6 +27,7 @@ def main():
                         model_task=args.task, return_run_id=True)
         using_mlflow = True
     else:
+        using_mlflow = False
         model = load_model_raw(args.checkpoint_path, model_task=args.task)
 
     model = model.to(args.device)
