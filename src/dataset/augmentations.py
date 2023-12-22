@@ -3,6 +3,7 @@ import torch
 from torchvision.transforms import functional as F, InterpolationMode, RandomHorizontalFlip
 import math
 
+
 class RandomHorizontalFlip():
     def __init__(self, size):
         self.size = size
@@ -102,16 +103,21 @@ class SimplexNoiseTransform():
         return batch
 
 class RandomRotTranslTransform():
-    def __init__(self, max_angle, max_translate):
+    def __init__(self, max_angle, max_translate, bound):
         self.max_angle = max_angle
         self.max_translate = max_translate
+        self.bound = bound
 
     def __call__(self, batch):
         image = batch['image']
         size = torch.tensor(image.shape[-2:])
 
         angle = (2 * torch.rand(1) - 1) * self.max_angle
+
         translate = (2 * torch.rand(2) - 1) * self.max_translate * size
+        v_transl = torch.clamp(translate[0], self.bound - batch["proj_uvz"][1], (size[0] - self.bound) - batch["proj_uvz"][1])
+        u_transl = torch.clamp(translate[1], self.bound - batch["proj_uvz"][0], (size[1] - self.bound) - batch["proj_uvz"][0])
+        translate = torch.tensor([u_transl, v_transl])
 
         sin = torch.sin(angle * torch.pi / 180).item()
         cos = torch.cos(angle * torch.pi / 180).item()
