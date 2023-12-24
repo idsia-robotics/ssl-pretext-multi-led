@@ -306,7 +306,6 @@ class Model_s(BaseModel):
     
     def predict_leds_with_gt_pos(self, batch, image):
         outs = self(image)
-        # breakpoint()
         pos_map = batch["pos_map"].to(outs.device)
         pos_map = resize(pos_map, outs.shape[-2:], antialias=False).float()
         pos_map_norm = pos_map / torch.sum(pos_map, axis = [-1, -2], keepdim=True)
