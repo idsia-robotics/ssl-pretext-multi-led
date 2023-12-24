@@ -60,7 +60,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 'pos' : .25,
                 'dist' : .25,
                 'ori' : .25,
-                'led' : .25
+                'led' : .25 * torch.log10(torch.e)
             }
             loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e,
                                                                             weights = w)
@@ -90,6 +90,12 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         mlflow.log_metric('train/loss/ori', mean(o_losses), e)
         mlflow.log_metric('train/loss/dist', mean(d_losses), e)
         mlflow.log_metric('train/loss/led', mean(led_losses), e)
+        mlflow.log_metric('train/loss/led', mean(led_losses), e)
+
+        mlflow.log_metric('train/loss/coefficienta/proj', w['pos'], e)
+        mlflow.log_metric('train/loss/coefficienta/dist', w['dist'], e)
+        mlflow.log_metric('train/loss/coefficienta/ori', w['ori'], e)
+        mlflow.log_metric('train/loss/coefficienta/led', w['led'], e)
 
         for i, led_label, in enumerate(H5Dataset.LED_TYPES):
             mlflow.log_metric(f'train/loss/led/{led_label}', multiple_led_losses[:, i].mean(), e)
