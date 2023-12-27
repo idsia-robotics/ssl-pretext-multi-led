@@ -179,7 +179,7 @@ def main():
     model = model_cls(task = args.task).to(args.device)
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible, compute_led_visibility=True)
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=0)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
     """
     Validation data
