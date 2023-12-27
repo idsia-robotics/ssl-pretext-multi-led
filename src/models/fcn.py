@@ -2,11 +2,9 @@ from typing import Any, Tuple
 import torch
 from src.models import BaseModel, ModelRegistry
 from torch.nn.functional import binary_cross_entropy as bce
-from torch.nn.functional import mse_loss
 from torchvision.transforms.functional import resize
 from numpy import unravel_index, stack
 import numpy as np
-from torchvision.transforms import InterpolationMode
 
 class RangeRescaler(torch.nn.Module):
 
@@ -105,7 +103,7 @@ class Model_s(BaseModel):
                 torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
                 # torch.nn.Sigmoid()
             )
-            self.forward = self.__pose_and_leds_forward
+            self.forward = self._pose_and_leds_forward
             self.loss = self.__robot_pose_and_leds_loss
 
             self.layers = torch.nn.Sequential(
@@ -125,7 +123,7 @@ class Model_s(BaseModel):
 
     def __robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
-        pos_true = resize(pos_true, model_out.shape[-2:], antialias=False).float()
+        pos_true = torch.nn.MaxPool2d(8, 8, 0)(pos_true)
 
         pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
         pos_pred_norm = model_out / pos_pred_sum
@@ -174,19 +172,20 @@ class Model_s(BaseModel):
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
         pos_trues = batch["pos_map"].to(led_outs.device)
-        pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False, interpolation=InterpolationMode.NEAREST_EXACT).float()
+        pos_trues = torch.nn.AvgPool2d(8)(pos_trues)
+        # pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False, interpolation=InterpolationMode.NEAREST_EXACT).float()
         pos_trues = pos_trues / pos_trues.sum(axis = [-1, -2])[..., None, None]
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        masked_led_outs = led_outs * pos_trues[:, None, ...]
+        masked_led_outs = led_outs * torch.tile(pos_trues[:, None, ...], dims = (1,))
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
-            losses[i] = torch.nn.functional.binary_cross_entropy(
-                led_preds[:, i], led_trues[:, i].float(), reduction='none'
-            ) * led_mask.float() / (led_mask.sum() + 1e-15)
-            # losses[i] = losses[i].sum() / led_mask.sum()
+            led_mask = batch["led_visibility_mask"].to(model_out.device)[:, i].double()
+            losses[i] = (torch.nn.functional.binary_cross_entropy(
+                led_preds[:, i], led_trues[:, i].double(), reduction='none'
+            ) * led_mask / (led_mask.sum() + 1e-15)).sum()
         return sum(losses) / 6, losses
 
     
@@ -226,7 +225,7 @@ class Model_s(BaseModel):
         out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
         return out
     
-    def __pose_and_leds_forward(self, x):
+    def _pose_and_leds_forward(self, x):
         out = self.layers(x)
         out = torch.cat(
             [

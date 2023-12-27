@@ -6,23 +6,6 @@ import torchvision
 from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip
 
 
-class PositionMapComputing:
-
-    def __init__(self, orb_size) -> None:
-        self.orb_size = orb_size
-        self.pos_orb = self.__pos_orb(self.orb_size)
-
-    def __pos_orb(self, orb_size = 20):
-        U, V = np.meshgrid(
-            np.arange(orb_size),
-            np.arange(orb_size),
-            indexing='xy'
-        )
-        grid = np.stack([V, U], axis = 0)
-        grid -= orb_size // 2
-        distances = np.linalg.norm(grid, axis = 0, ord = 2)
-        return 1 - np.tanh(.1 * distances)
-        
 class H5Dataset(torch.utils.data.Dataset):
     LED_TYPES = ["bb", "bl", "br", "bf", "tl", "tr"]
     LED_VISIBILITY_RANGES_DEG = [
@@ -33,7 +16,7 @@ class H5Dataset(torch.utils.data.Dataset):
         [[0, 180], [np.inf, np.inf]],
         [[-180, -0], [np.inf, np.inf]],
     ]
-    POS_ORB_SIZE = 80
+    POS_ORB_SIZE = 40
 
     # Use this for good visibility
     # LED_VISIBILITY_RANGES_DEG = [
@@ -185,11 +168,10 @@ class H5Dataset(torch.utils.data.Dataset):
         grid = np.stack([V, U], axis = 0)
         grid -= orb_size // 2
         distances = np.linalg.norm(grid, axis = 0, ord = 2)
-        return (distances <= orb_size / 2).astype(np.float32)
         return 1 - np.tanh(.04 * distances)
 
 
-    def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20):
+    def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20, align_to = None):
         # Padded so i can easily crop it out
         if not robot_visible:
             return np.zeros(map_size)
@@ -198,16 +180,17 @@ class H5Dataset(torch.utils.data.Dataset):
         result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0) # 440x720
         
         if proj_uvz[-1] > 0:
-            u = int(proj_uvz[0]) + padding
-            v = int(proj_uvz[1]) + padding
-            try:
-                result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
-            except:
-                breakpoint()
-        map = result[padding:-padding, padding:-padding]
-        if map.sum() == 0:
-            breakpoint()
-        return map
+            u = 0
+            v = 0
+
+            if not align_to:
+                u = int(proj_uvz[0]) + padding
+                v = int(proj_uvz[1]) + padding
+            else:
+                u = int(proj_uvz[0]) // align_to * align_to + align_to // 2 + padding
+                v = int(proj_uvz[1]) // align_to * align_to + align_to // 2 + padding
+            result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
+        return result[padding:-padding, padding:-padding]
     
 
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
