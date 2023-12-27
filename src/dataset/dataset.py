@@ -168,7 +168,8 @@ class H5Dataset(torch.utils.data.Dataset):
         grid = np.stack([V, U], axis = 0)
         grid -= orb_size // 2
         distances = np.linalg.norm(grid, axis = 0, ord = 2)
-        return 1 - np.tanh(.04 * distances)
+        # return 1 - np.tanh(.04 * distances)
+        return distances <= orb_size / 2 + 1e-15
 
 
     def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20, align_to = None):
