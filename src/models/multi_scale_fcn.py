@@ -32,7 +32,17 @@ class MS_Model_s(Model_s):
             torch.nn.Conv2d(32, 32, kernel_size=3, padding=2, stride=1, dilation=2),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
+
+            # Let's go deeper
+            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
 
         )
 
