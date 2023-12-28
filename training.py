@@ -28,9 +28,9 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
     
     w = {
         'pos' : .1,
-        'dist' : .1,
-        'ori' : .1,
-        'led' : .7
+        'dist' : .0,
+        'ori' : .0,
+        'led' : .9
     }
 
     for e in trange(epochs):
