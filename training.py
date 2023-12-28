@@ -26,6 +26,13 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         milestones=[3,]
     )
     
+    w = {
+        'pos' : .1,
+        'dist' : .1,
+        'ori' : .1,
+        'led' : .7
+    }
+
     for e in trange(epochs):
         losses = []
         p_losses = []
@@ -56,12 +63,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             theta_trues.extend(batch["pose_rel"][:, -1])
 
 
-            w = {
-                'pos' : .25,
-                'dist' : .25,
-                'ori' : .25,
-                'led' : .25
-            }
             loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e,
                                                                             weights = w)
             loss = loss.mean()
@@ -121,12 +122,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             theta_trues = []
             led_preds = []
             led_trues = []
-            w = {
-                'pos' : .25,
-                'dist' : .25,
-                'ori' : .25,
-                'led' : .25
-            }
 
             for batch in val_dataloader:
                 image = batch['image'].to(device)
