@@ -11,7 +11,7 @@ import numpy as np
 
 
 def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epochs, lr = .001, validation_rate = 10,
-               checkpoint_logging_rate = 10):
+               checkpoint_logging_rate = 10, loss_weights = {'pos' : .2,'dist' : .0,'ori' : .0,'led' : .8}):
 
     optimizer = model.optimizer(lr)
 
@@ -26,13 +26,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         milestones=[3,]
     )
     
-    w = {
-        'pos' : .2,
-        'dist' : .0,
-        'ori' : .0,
-        'led' : .8
-    }
-
     for e in trange(epochs):
         losses = []
         p_losses = []
@@ -64,7 +57,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
 
             loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e,
-                                                                            weights = w)
+                                                                            weights = loss_weights)
             loss = loss.mean()
             loss.backward()
             losses.append(loss.item())
@@ -93,10 +86,10 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         mlflow.log_metric('train/loss/led', mean(led_losses), e)
         mlflow.log_metric('train/loss/led', mean(led_losses), e)
 
-        mlflow.log_metric('train/loss/coefficienta/proj', w['pos'], e)
-        mlflow.log_metric('train/loss/coefficienta/dist', w['dist'], e)
-        mlflow.log_metric('train/loss/coefficienta/ori', w['ori'], e)
-        mlflow.log_metric('train/loss/coefficienta/led', w['led'], e)
+        mlflow.log_metric('train/loss/coefficienta/proj', loss_weights['pos'], e)
+        mlflow.log_metric('train/loss/coefficienta/dist', loss_weights['dist'], e)
+        mlflow.log_metric('train/loss/coefficienta/ori', loss_weights['ori'], e)
+        mlflow.log_metric('train/loss/coefficienta/led', loss_weights['led'], e)
 
         for i, led_label, in enumerate(H5Dataset.LED_TYPES):
             mlflow.log_metric(f'train/loss/led/{led_label}', multiple_led_losses[:, i].mean(), e)
@@ -127,7 +120,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 image = batch['image'].to(device)
                 
                 out = model.forward(image)
-                loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e, weights = w)
+                loss, p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e, weights = loss_weights)
                 loss = loss.mean()
                 losses.append(loss.item())
                 p_losses.append(p_loss.item())
@@ -173,14 +166,17 @@ def main():
     model_cls = get_model(args.model_type)
     model = model_cls(task = args.task).to(args.device)
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
-                                only_visible_robots=args.visible, compute_led_visibility=True)
+                                only_visible_robots=args.visible, compute_led_visibility=False,
+                                supervised_flagging=args.labeled_count,
+                                supervised_flagging_seed=args.labeled_count_seed
+                                )
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
     """
     Validation data
     """
     if args.validation_dataset:
-        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=args.visible, compute_led_visibility=True)
+        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=args.visible, compute_led_visibility=False)
         validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size = 64, num_workers=8)
     else:
         validation_dataloader = None
@@ -188,11 +184,18 @@ def main():
     
     if args.dry_run:
         return
+    
+    loss_weights = {
+        'pos' : args.w_proj,
+        'dist' : args.w_dist,
+        'ori' : args.w_ori,
+        'led' : args.w_led,
 
+    }
     with mlflow.start_run(experiment_id=args.experiment_id, run_name=args.run_name) as run:
         mlflow.log_params(vars(args))
         train_loop(model, train_dataloader, validation_dataloader, args.device,
-                   epochs=args.epochs, lr=args.learning_rate)
+                   epochs=args.epochs, lr=args.learning_rate, loss_weights = loss_weights)
         
 
 if __name__ == "__main__":
