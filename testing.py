@@ -25,7 +25,7 @@ def main():
 
     if args.checkpoint_id:
         model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_task=args.task)
+                        model_task=args.task, return_run_id=True)
         using_mlflow = True
     else:
         model = load_model_raw(args.checkpoint_path, model_task=args.task)

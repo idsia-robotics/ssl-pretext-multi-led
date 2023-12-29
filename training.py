@@ -103,7 +103,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
         
 
-        if val_dataloader and e % validation_rate == 0:
+        if val_dataloader and e % validation_rate == 0 or e == epochs - 1:
             preds = []
             trues = []
             losses = []
