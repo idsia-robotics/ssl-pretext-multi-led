@@ -35,7 +35,9 @@ class H5Dataset(torch.utils.data.Dataset):
                  robot_id = None,
                  sample_count = None,
                  sample_count_seed = None,
-                 compute_led_visibility = False):
+                 compute_led_visibility = False,
+                 supervised_flagging = None,
+                 supervised_flagging_seed = None):
         
         filename = Path(filename)
         if not filename.is_file():
@@ -110,6 +112,18 @@ class H5Dataset(torch.utils.data.Dataset):
 
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
+
+        self.supervised_mask = np.ones_like(self.data["robot_id"], dtype=bool)
+
+        if supervised_flagging is not None:
+            np.random.seed(supervised_flagging_seed)
+            supervised_indexes = np.random.choice(self.valid_ds_indexes,
+                                                       size = supervised_flagging,
+                                                       replace=False)
+            self.supervised_mask = np.zeros_like(self.data["robot_id"], dtype=bool)
+            self.supervised_mask[supervised_indexes.tolist()] = True
+            
+
     def __getitem__(self, slice):
         slice = self.valid_ds_indexes[slice]
         # This is tailored for 2 total robots. Subject to change in the future
@@ -142,6 +156,8 @@ class H5Dataset(torch.utils.data.Dataset):
         # batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
         batch["distance_rel"] = batch["pose_rel"][0]
         batch["robot_id"] = slice_robot_id
+
+        batch["supervised_flag"] = self.supervised_mask[slice]
 
         if self.compute_visibility_mask:
             other_pose_rel = self.data["RM" + str(3 - slice_robot_id) + "_pose_rel_RM" + str(slice_robot_id)][slice]
@@ -197,14 +213,16 @@ class H5Dataset(torch.utils.data.Dataset):
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
                 sample_count = None, sample_count_seed = None,
                 only_visible_robots = False,
-                compute_led_visibility = False):
+                compute_led_visibility = False,
+                supervised_flagging = None,
+                supervised_flagging_seed = None):
     
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-#            RandomHorizontalFlip((360, 640)),
-            RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE),
-            SimplexNoiseTransform((360, 640))
+           RandomHorizontalFlip((360, 640)),
+           RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
+            # SimplexNoiseTransform((360, 640))
         ])
 
     camera_robot_id_int = None
@@ -216,7 +234,9 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                         robot_id=camera_robot_id_int,
                         sample_count = sample_count,
                         sample_count_seed = sample_count_seed,
-                        compute_led_visibility = compute_led_visibility)
+                        compute_led_visibility = compute_led_visibility,
+                        supervised_flagging=supervised_flagging,
+                        supervised_flagging_seed=supervised_flagging_seed)
 
     mask = torch.ones(len(dataset), dtype=torch.bool)
     

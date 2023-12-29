@@ -193,9 +193,11 @@ class Model_s(BaseModel):
         orientation_loss = self.__robot_orientation_loss(batch, model_out)
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
+        supervised_label = batch["supervised_flag"].to(model_out.device)
         proj_loss_norm = proj_loss
-        dist_loss_norm = dist_loss / self.MAX_DIST_M
-        ori_loss_norm = orientation_loss / 2
+        proj_loss_norm = proj_loss_norm[supervised_label, ...]
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M)[supervised_label, ...]
+        ori_loss_norm = (orientation_loss / 2)[supervised_label, ...]
 
         loss = weights['pos'] * proj_loss_norm + weights['dist'] * dist_loss_norm + weights['ori'] * ori_loss_norm + \
         led_loss * weights['led']

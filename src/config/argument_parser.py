@@ -42,6 +42,13 @@ def parse_args(*config):
         parser.add_argument("-e", "--epochs", type=int, default=100)
         parser.add_argument("-lr", "--learning-rate", type=float, default=.002)
         parser.add_argument("--dry-run", action='store_true')
+        parser.add_argument("--w-proj", default=.25, type = float)
+        parser.add_argument("--w-dist", default=.25, type = float)
+        parser.add_argument("--w-ori", default=.25, type = float)
+        parser.add_argument("--w-led", default=.25, type = float)
+        parser.add_argument("--labeled-count", default = None, type=int)
+        parser.add_argument("--labeled-count-seed", default = 0, type=int)
+
 
 
 
