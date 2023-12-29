@@ -182,9 +182,8 @@ class Model_s(BaseModel):
         led_preds = torch.clamp(masked_led_outs.sum(axis=[-1, -2]), 0., 1.)
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
-            losses[i] = (torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].double(), reduction='none'
-                ) ** 2).mean()
+            losses[i] = torch.nn.functional.binary_cross_entropy(
+                    led_preds[:, i], led_trues[:, i].double())
         return (sum(losses) / 6), losses
 
     
