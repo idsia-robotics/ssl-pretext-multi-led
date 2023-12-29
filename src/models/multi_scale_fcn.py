@@ -2,6 +2,25 @@ import torch
 from src.models import ModelRegistry
 from src.models.fcn import Model_s
 
+class ConvBlock(torch.nn.Module):
+    def __init__(self, in_channels = 64) -> None:
+        super().__init__()
+        assert in_channels // 8 > 0 and in_channels % 8 == 0
+
+        self.layers = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, in_channels // 4, kernel_size=1),
+            torch.nn.BatchNorm2d(in_channels // 4),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels // 4, in_channels // 8, kernel_size=1),
+            torch.nn.BatchNorm2d(in_channels // 8),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels // 8, 1, kernel_size=1),
+            torch.nn.BatchNorm2d(1),
+            
+        )
+    def forward(self, x):
+        return self.layers(x)
+    
 @ModelRegistry("multiscale_model_s")
 class MS_Model_s(Model_s):
     
@@ -35,13 +54,16 @@ class MS_Model_s(Model_s):
 
         )
 
-        self.robot_pose_and_led_layer = torch.nn.Sequential(
-                torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
-                torch.nn.ReLU(),
-                torch.nn.BatchNorm2d(10),
-                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
-                # torch.nn.Sigmoid()
-            )
+        self.robot_pose_and_led_layer = torch.nn.ModuleList([
+            ConvBlock(64) for _ in range(10)
+        ])
+        # (
+        #         torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
+        #         torch.nn.ReLU(),
+        #         torch.nn.BatchNorm2d(10),
+        #         torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+        #         # torch.nn.Sigmoid()
+        #     )
         self.forward = self.forward_fn
 
     def forward_fn(self, x):
@@ -50,7 +72,7 @@ class MS_Model_s(Model_s):
         downsampled_out = self.core_layers(downsampled)
         downsampled_out = self.upsample_layer(downsampled_out)
         concat = torch.cat([out, downsampled_out], dim = 1)
-        out = self.robot_pose_and_led_layer(concat)
+        out = torch.cat([l(concat) for l in self.robot_pose_and_led_layer], dim = 1)
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]), # pos and dist
