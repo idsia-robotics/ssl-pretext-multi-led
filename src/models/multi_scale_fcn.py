@@ -33,17 +33,6 @@ class MS_Model_s(Model_s):
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
 
-            # Let's go deeper
-            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=1, padding=0),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-
         )
 
         self.robot_pose_and_led_layer = torch.nn.Sequential(
