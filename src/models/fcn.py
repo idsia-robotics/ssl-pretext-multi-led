@@ -171,19 +171,22 @@ class Model_s(BaseModel):
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        pos_trues = batch["pos_map"].to(led_outs.device)
-        pos_trues = torch.nn.AvgPool2d(8)(pos_trues)
+        pos_preds = model_out[:, :1, ...].detach()
+        pos_preds = pos_preds / pos_preds.sum(axis = [-1, -2], keepdims = True)
+
+        # pos_trues = batch["pos_map"].to(led_outs.device)
+        # pos_trues = torch.nn.AvgPool2d(8)(pos_trues)
         # pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False, interpolation=InterpolationMode.NEAREST_EXACT).float()
-        pos_trues = pos_trues / pos_trues.sum(axis = [-1, -2])[..., None, None]
+        # pos_trues = pos_trues / pos_trues.sum(axis = [-1, -2])[..., None, None]
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        masked_led_outs = led_outs * torch.tile(pos_trues[:, None, ...], dims = (1,))
+        masked_led_outs = led_outs * torch.tile(pos_preds, dims = (1,))
         led_preds = torch.clamp(masked_led_outs.sum(axis=[-1, -2]), 0., 1.)
         losses = [0] * 6
         for i in range(led_preds.shape[1]):
             losses[i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].double())
+                    led_preds[:, i], led_trues[:, i].float())
         return (sum(losses) / 6), losses
 
     
@@ -194,13 +197,15 @@ class Model_s(BaseModel):
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
-        proj_loss_norm = proj_loss
-        proj_loss_norm = proj_loss_norm[supervised_label, ...]
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M)[supervised_label, ...]
-        ori_loss_norm = (orientation_loss / 2)[supervised_label, ...]
+        # proj_loss_norm[~supervised_label, ...] = 100
+        proj_loss_norm = proj_loss * supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M) * supervised_label
+        ori_loss_norm = (orientation_loss / 2) * supervised_label
 
-        loss = weights['pos'] * proj_loss_norm + weights['dist'] * dist_loss_norm + weights['ori'] * ori_loss_norm + \
-        led_loss * weights['led']
+        loss = weights['pos'] * proj_loss_norm.mean() \
+            + weights['dist'] * dist_loss_norm.mean()\
+            + weights['ori'] * ori_loss_norm.mean() \
+            + led_loss * weights['led']
         
         return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
             led_loss, led_losses
