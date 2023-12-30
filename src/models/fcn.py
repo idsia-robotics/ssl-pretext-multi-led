@@ -202,9 +202,9 @@ class Model_s(BaseModel):
         dist_loss_norm = (dist_loss / self.MAX_DIST_M) * supervised_label
         ori_loss_norm = (orientation_loss / 2) * supervised_label
 
-        loss = weights['pos'] * proj_loss_norm.mean() \
-            + weights['dist'] * dist_loss_norm.mean()\
-            + weights['ori'] * ori_loss_norm.mean() \
+        loss = weights['pos'] * proj_loss_norm.sum() / supervised_label.sum() \
+            + weights['dist'] * dist_loss_norm.sum() / supervised_label.sum()\
+            + weights['ori'] * ori_loss_norm.sum() / supervised_label.sum() \
             + led_loss * weights['led']
         
         return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
