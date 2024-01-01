@@ -103,7 +103,7 @@ def main():
 
             for fig_fn in figures:
                 fig = fig_fn(data)
-                mlflow.log_figure(fig, fig_fn.__name__)
+                mlflow.log_figure(fig, fig_fn.__name__ + ".png")
     else:
         run_name = datetime.today().isoformat()
         out_folder = Path("plots/") / run_name
