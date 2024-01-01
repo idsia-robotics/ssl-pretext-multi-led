@@ -3,7 +3,7 @@ import h5py
 import torch
 import numpy as np
 import torchvision
-from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip
+from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation
 
 
 class H5Dataset(torch.utils.data.Dataset):
@@ -222,7 +222,12 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
         transform = torchvision.transforms.Compose([
             RandomHorizontalFlip((360, 640)),
             RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
-            SimplexNoiseTransform((360, 640))
+            SimplexNoiseTransform((360, 640)),
+            ColorJitterAugmentation(
+                brightness=.4,
+                hue=.2
+
+            )
         ])
 
     camera_robot_id_int = None

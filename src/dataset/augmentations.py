@@ -1,6 +1,7 @@
 from functools import reduce
+from typing import Any
 import torch
-from torchvision.transforms import functional as F, InterpolationMode, RandomHorizontalFlip
+from torchvision.transforms.v2 import ColorJitter, functional as F, InterpolationMode
 import math
 
 
@@ -151,3 +152,12 @@ class RandomRotTranslTransform():
         batch['pos_map'] = pos_map.squeeze()
 
         return batch
+    
+
+class ColorJitterAugmentation(ColorJitter):
+
+    def __call__(self, batch) -> Any:
+        transformed_image = super().__call__(batch['image'])
+        batch['image'] = transformed_image
+        return batch
+    
