@@ -191,24 +191,26 @@ class Model_s(BaseModel):
 
     
     def __robot_pose_and_leds_loss(self, batch, model_out, epoch, weights):
+        breakpoint()
         proj_loss = self.__robot_position_loss(batch, model_out[:, :1, ...])
         dist_loss = self.__robot_distance_loss(batch, model_out)
         orientation_loss = self.__robot_orientation_loss(batch, model_out)
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
+        norm_supervised_label = supervised_label / supervised_label.sum()
         # proj_loss_norm[~supervised_label, ...] = 100
-        proj_loss_norm = proj_loss * supervised_label
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M) * supervised_label
-        ori_loss_norm = (orientation_loss / 2) * supervised_label
+        proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * norm_supervised_label
+        ori_loss_norm = (orientation_loss / 2)[..., 0] * norm_supervised_label
 
-        loss = weights['pos'] * proj_loss_norm.sum() / supervised_label.sum() \
-            + weights['dist'] * dist_loss_norm.sum() / supervised_label.sum()\
-            + weights['ori'] * ori_loss_norm.sum() / supervised_label.sum() \
+        loss = weights['pos'] * proj_loss_norm.sum() \
+            + weights['dist'] * dist_loss_norm.sum()\
+            + weights['ori'] * ori_loss_norm.sum() \
             + led_loss * weights['led']
         
-        return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
-            led_loss, led_losses
+        return loss, proj_loss.detach().sum(), dist_loss.detach().sum(), orientation_loss.detach().sum(),\
+            led_loss.detach(), led_losses
         # if epoch == -1:
         #     return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
         #     led_losses
