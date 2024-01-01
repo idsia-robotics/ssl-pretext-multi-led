@@ -1,4 +1,4 @@
-RUN_NAME=pose_and_led_orb_80_no_mask
+RUN_NAME=testing_all_augs_back
 
 python3.11 -m training -d data/robomaster_ds_training.h5 -t pose_and_led\
     -n ${RUN_NAME} --experiment-id 0\

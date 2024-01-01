@@ -9,7 +9,7 @@ class RandomHorizontalFlip():
         self.size = size
 
     def __call__(self, batch):
-        if torch.rand(1) < 0.5:
+        if torch.rand(1) < .5:
             batch['proj_uvz'][0] = batch['image'].shape[-1] - batch['proj_uvz'][0]
             batch['image'] = F.hflip(batch['image'])
             batch['pos_map'] = F.hflip(batch['pos_map'])
@@ -24,6 +24,8 @@ class RandomHorizontalFlip():
             
             batch["led_tl"] = batch["led_tr"]
             batch["led_tr"] = swap
+
+                
             
             swap = batch["led_mask"][1] 
             batch["led_mask"][1] = batch["led_mask"][2]
@@ -32,6 +34,16 @@ class RandomHorizontalFlip():
             swap = batch["led_mask"][-2] 
             batch["led_mask"][-2] = batch["led_mask"][-1]
             batch["led_mask"][-1] = swap
+
+            if 'led_visibility_mask' in batch:
+                swap = batch["led_visibility_mask"][1] 
+                batch["led_visibility_mask"][1] = batch["led_visibility_mask"][2]
+                batch["led_visibility_mask"][2] = swap
+
+                swap = batch["led_visibility_mask"][-2] 
+                batch["led_visibility_mask"][-2] = batch["led_visibility_mask"][-1]
+                batch["led_visibility_mask"][-1] = swap
+
         return batch
     
 
@@ -110,7 +122,7 @@ class RandomRotTranslTransform():
 
     def __call__(self, batch):
         image = batch['image']
-        size = torch.tensor(image.shape[-2:])
+        size = torch.tensor(image.shape[-2:]) # [V,U]
 
         angle = (2 * torch.rand(1) - 1) * self.max_angle
 
