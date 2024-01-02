@@ -10,7 +10,7 @@ import pandas as pd
 from src.metrics import angle_difference, mse
 from datetime import datetime
 from src.models import load_model_mlflow, load_model_raw
-from src.viz.plots import orientation_error_distribution, theta_scatter_plot, proj_scatter_plot, proj_error_distribution, custom_scatter, orientation_error_by_orientation
+from src.viz.plots import orientation_error_distribution, theta_scatter_plot, proj_scatter_plot, proj_error_distribution, custom_scatter, orientation_error_by_orientation, distance_error_distribution
 from matplotlib import pyplot as plt
 
 
@@ -91,7 +91,8 @@ def main():
         custom_scatter('cos_true', 'cos_pred', 'Cos scatter', xlim = [-1, 1], ylim=[-1,1], plot_name="Cos scatter"),
         custom_scatter('sin_true', 'sin_pred', 'Sin scatter', xlim = [-1, 1], ylim=[-1,1], plot_name="Sin scatter"),
         orientation_error_by_orientation,
-        custom_scatter('theta_error', 'dist_true', 'Theta error vs Distance', xlabel = "Theta Error [rad]", ylabel = "Distance [m]", correlation=True, plot_name="Distance-Theta error scatter")
+        custom_scatter('theta_error', 'dist_true', 'Theta error vs Distance', xlabel = "Theta Error [rad]", ylabel = "Distance [m]", correlation=True, plot_name="Distance-Theta error scatter"),
+        distance_error_distribution
     ]
 
     if using_mlflow:

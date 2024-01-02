@@ -58,6 +58,7 @@ def proj_error_distribution(ds):
     proj_true = ds["proj_true"]
     proj_pred = ds["proj_pred"]
     errors = np.linalg.norm(proj_true - proj_pred, axis = 1)
+    errors = errors[errors < 700]
     fig, ax = plt.subplots(1,1)
 
 
@@ -92,6 +93,20 @@ def orientation_error_by_orientation(ds):
     ax.set_aspect('equal')
     ax.set_xlabel("Theta true [rad]")
     ax.set_ylabel("Error [rad]")
+    return fig
+
+def distance_error_distribution(ds):
+    dist_true = ds["dist_true"]
+    dist_pred = ds["dist_pred"]
+    errors = (dist_true - dist_pred).abs()
+    fig, ax = plt.subplots(1,1)
+
+
+    ax.hist(errors, bins = 300)
+    ax.set_xlim(0, np.pi)
+    ax.set_xlabel("Error [m]")
+    ax.set_title("Absolute distance error distribution")
+
     return fig
 
 def custom_scatter(x_key, y_key, title, correlation = False, plot_name = None, **kwargs):
