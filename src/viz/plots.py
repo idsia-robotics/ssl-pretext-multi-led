@@ -62,8 +62,8 @@ def proj_error_distribution(ds):
     fig, ax = plt.subplots(1,1)
 
 
-    ax.hist(errors, bins = 300)
-    ax.set_xlim(0, 360)
+    ax.hist(errors, bins = 300, density = True)
+    ax.set_xlim(0, 700)
     ax.set_xlabel("Error [px]")
 
 
@@ -76,7 +76,7 @@ def orientation_error_distribution(ds):
     fig, ax = plt.subplots(1,1)
 
 
-    ax.hist(errors, bins = 300)
+    ax.hist(errors, bins = 300, density=True)
     ax.set_xlim(0, np.pi)
     ax.set_xlabel("Error [rad]")
 
@@ -102,7 +102,7 @@ def distance_error_distribution(ds):
     fig, ax = plt.subplots(1,1)
 
 
-    ax.hist(errors, bins = 300)
+    ax.hist(errors, bins = 300, density=True)
     ax.set_xlim(0, np.pi)
     ax.set_xlabel("Error [m]")
     ax.set_title("Absolute distance error distribution")
