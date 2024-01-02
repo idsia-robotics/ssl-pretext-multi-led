@@ -98,7 +98,7 @@ def orientation_error_by_orientation(ds):
 def distance_error_distribution(ds):
     dist_true = ds["dist_true"]
     dist_pred = ds["dist_pred"]
-    errors = (dist_true - dist_pred).abs()
+    errors = np.abs(dist_true - dist_pred)
     fig, ax = plt.subplots(1,1)
 
 
