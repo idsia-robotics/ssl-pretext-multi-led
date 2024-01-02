@@ -3,7 +3,7 @@ import h5py
 import torch
 import numpy as np
 import torchvision
-from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation
+from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, ImageToFloat
 
 
 class H5Dataset(torch.utils.data.Dataset):
@@ -82,21 +82,23 @@ class H5Dataset(torch.utils.data.Dataset):
 
         # Are we filtering out for visible robots only?
         
+        self.visibility_mask = np.zeros(len(self), dtype=np.int8)
+        bounds = np.array([
+            [0, 640], # u
+            [0, 360], # v
+            [0, np.inf] # z
+        ])
+        for i in range(len(self)):
+            keys = self.proj_uvz_keys[self.data["robot_id"][i]]
+            for k in keys:
+                # breakpoint()
+                if (self.data[k][i] > bounds[:, 0]).all() and (self.data[k][i] < bounds[:, 1]).all():
+                    self.visibility_mask[i] = True
+                    break
+        
         if only_visible_robots:
-            visibility_mask = np.zeros(len(self), dtype=np.int8)
-            bounds = np.array([
-                [0, 640], # u
-                [0, 360], # v
-                [0, np.inf] # z
-            ])
-            for i in range(len(self)):
-                keys = self.proj_uvz_keys[self.data["robot_id"][i]]
-                for k in keys:
-                    # breakpoint()
-                    if (self.data[k][i] > bounds[:, 0]).all() and (self.data[k][i] < bounds[:, 1]).all():
-                        visibility_mask[i] = True
-                        break
-            self.valid_ds_indexes = np.where(visibility_mask > 0)[0]
+            self.valid_ds_indexes = np.where(self.visibility_mask > 0)[0]
+            # self.visibility_mask = np.ones(len(self.valid_ds_indexes))
 
         if robot_id:
             mask = self.data["robot_id"][self.valid_ds_indexes] == robot_id
@@ -117,7 +119,7 @@ class H5Dataset(torch.utils.data.Dataset):
 
         if supervised_flagging is not None:
             np.random.seed(supervised_flagging_seed)
-            supervised_indexes = np.random.choice(self.valid_ds_indexes,
+            supervised_indexes = np.random.choice(np.where(self.visibility_mask)[0],
                                                        size = supervised_flagging,
                                                        replace=False)
             self.supervised_mask = np.zeros_like(self.data["robot_id"], dtype=bool)

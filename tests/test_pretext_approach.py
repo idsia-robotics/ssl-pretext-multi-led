@@ -1,6 +1,10 @@
 import unittest
+
+import torch
 from src.dataset.dataset import get_dataset
 from torch.utils.data import DataLoader
+
+from src.models.fcn import Model_s
 
 class TestPretextDataset(unittest.TestCase):
 
@@ -17,12 +21,15 @@ class TestPretextDataset(unittest.TestCase):
         self.assertEqual(supervised_count, target_count)
 
     def test_selector_consistency(self):
+        """
+        Test visibility-agnostic consistency in selector
+        """
         target_count = 438
         seed = 42
         ds = get_dataset(
             "data/robomaster_ds_validation.h5",
             supervised_flagging=target_count,
-            supervised_flagging_seed=seed
+            supervised_flagging_seed=seed,
         )
         dl = DataLoader(ds, batch_size=128)
         timestamps_pretext = []
@@ -33,7 +40,8 @@ class TestPretextDataset(unittest.TestCase):
         ds = get_dataset(
             "data/robomaster_ds_validation.h5",
             sample_count=target_count,
-            sample_count_seed=seed
+            sample_count_seed=seed,
+            only_visible_robots=True
         )
         dl = DataLoader(ds, batch_size=128)
         timestamps_baseline = []
@@ -74,7 +82,6 @@ class TestPretextDataset(unittest.TestCase):
         timestamps_baseline = set(timestamps_baseline)
         self.assertNotEqual(timestamps_baseline, timestamps_pretext)
 
-        
 
 if __name__ == "__main__":
     unittest.main()
