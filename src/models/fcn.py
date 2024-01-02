@@ -205,13 +205,12 @@ class Model_s(BaseModel):
         proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * norm_supervised_label
         ori_loss_norm = (orientation_loss / 2)[..., 0] * norm_supervised_label
-
         loss = weights['pos'] * proj_loss_norm.sum() \
             + weights['dist'] * dist_loss_norm.sum()\
             + weights['ori'] * ori_loss_norm.sum() \
             + led_loss * weights['led']
         
-        return loss, proj_loss.detach().sum(), dist_loss.detach().sum(), orientation_loss.detach().sum(),\
+        return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
             led_loss.detach(), led_losses
         # if epoch == -1:
         #     return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
