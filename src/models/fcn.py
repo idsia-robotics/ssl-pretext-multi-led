@@ -200,7 +200,7 @@ class Model_s(BaseModel):
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
-        norm_supervised_label = supervised_label / supervised_label.sum()
+        norm_supervised_label = supervised_label / (supervised_label.sum() + 1e-15)
         # proj_loss_norm[~supervised_label, ...] = 100
         proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * norm_supervised_label
@@ -248,7 +248,7 @@ class Model_s(BaseModel):
 
     
 
-    def predict_pos_from_out(self, image, outs):
+    def predict_pos_from_outs(self, image, outs):
         outs = outs[:, :1, ...]
         out_map_shape = outs.shape[-2:]
         outs = outs.view(outs.shape[0], -1)
@@ -266,7 +266,7 @@ class Model_s(BaseModel):
     
     def predict_pos(self, image):
         outs = self(image)
-        return self.predict_pos_from_out(image, outs)
+        return self.predict_pos_from_outs(image, outs)
     
     def predict_dist_from_outs(self, outs):
         pos_map = outs[:, 0, ...]
