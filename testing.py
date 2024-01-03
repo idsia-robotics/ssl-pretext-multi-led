@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 
 def main():
     args = parse_args('vis', 'inference')
-    ds = get_dataset(args.dataset, camera_robot=args.robot_id, target_robots=[args.target_robot_id],
+    ds = get_dataset(args.dataset, camera_robot=args.robot_id,
                      augmentations=args.augmentations, only_visible_robots=args.visible,
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
     dataloader = DataLoader(ds, batch_size = 64, shuffle = False)
@@ -97,7 +97,7 @@ def main():
 
     if using_mlflow:
         with mlflow.start_run(run_id=run_id) as run:
-            mlflow.log_metric('testing/proj/mse', median_proj_error)
+            mlflow.log_metric('testing/proj/median_squared_error', median_proj_error)
             mlflow.log_metric('testing/ori/mae', mean_angle_error)
             mlflow.log_metric('testing/distance/mae', mean_dist_error)
             mlflow.log_metric("testing/proj/p30", precision_30)
