@@ -54,16 +54,16 @@ class MS_Model_s(Model_s):
 
         )
 
-        self.robot_pose_and_led_layer = torch.nn.ModuleList([
-            ConvBlock(64) for _ in range(10)
-        ])
+        self.robot_pose_and_led_layer = torch.nn.ModuleList(
+        #     ConvBlock(64) for _ in range(10)
+        # ])
         # (
-        #         torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
-        #         torch.nn.ReLU(),
-        #         torch.nn.BatchNorm2d(10),
-        #         torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
-        #         # torch.nn.Sigmoid()
-        #     )
+           [     torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.ReLU(),
+                torch.nn.BatchNorm2d(10),
+                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+                # torch.nn.Sigmoid()
+            ])
         self.forward = self.forward_fn
 
     def forward_fn(self, x):
@@ -85,5 +85,4 @@ class MS_Model_s(Model_s):
         return out
 
     
-
 

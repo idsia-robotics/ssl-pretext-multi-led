@@ -171,13 +171,7 @@ class Model_s(BaseModel):
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        pos_preds = model_out[:, :1, ...].detach()
-        pos_preds = pos_preds / pos_preds.sum(axis = [-1, -2], keepdims = True)
-
-        # pos_trues = batch["pos_map"].to(led_outs.device)
-        # pos_trues = torch.nn.AvgPool2d(8)(pos_trues)
-        # pos_trues = resize(pos_trues, model_out.shape[-2:], antialias=False, interpolation=InterpolationMode.NEAREST_EXACT).float()
-        # pos_trues = pos_trues / pos_trues.sum(axis = [-1, -2])[..., None, None]
+        pos_preds = self.__pose_pred_norm_cache.detach()
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
