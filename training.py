@@ -50,7 +50,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             image = batch['image'].to(device)
             
             out = model.forward(image)
-            pos_preds = model.predict_pos_from_out(image, out)
+            pos_preds = model.predict_pos_from_outs(image, out)
             preds.extend(pos_preds)
             trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
             dist_trues.extend(batch["distance_rel"])

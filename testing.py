@@ -48,7 +48,7 @@ def main():
     for batch in tqdm.tqdm(dataloader):
         image = batch['image'].to(args.device)
         outs = model(image)
-        proj_pred = model.predict_pos_from_out(image, outs)
+        proj_pred = model.predict_pos_from_outs(image, outs)
         dist_pred = model.predict_dist_from_outs(outs)
         theta_pred, cos_pred, sin_pred = model.predict_orientation_from_outs(outs, return_cos_sin = True)
         
