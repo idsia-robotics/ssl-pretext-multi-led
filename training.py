@@ -43,6 +43,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         dist_trues = []
         theta_trues = []
 
+        model.train()
         for batch in train_dataloader:
             optimizer.zero_grad()
 
@@ -115,6 +116,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             theta_trues = []
             led_preds = []
             led_trues = []
+
+            model.eval()
 
             for batch in val_dataloader:
                 image = batch['image'].to(device)
