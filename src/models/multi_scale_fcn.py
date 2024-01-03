@@ -72,7 +72,7 @@ class MS_Model_s(Model_s):
         downsampled_out = self.core_layers(downsampled)
         downsampled_out = self.upsample_layer(downsampled_out)
         concat = torch.cat([out, downsampled_out], dim = 1)
-        out = torch.cat([l(concat) for l in self.robot_pose_and_led_layer], dim = 1)
+        # out = torch.cat([l(concat) for l in self.robot_pose_and_led_layer], dim = 1)
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]), # pos and dist
