@@ -54,16 +54,13 @@ class MS_Model_s(Model_s):
 
         )
 
-        self.robot_pose_and_led_layer = torch.nn.ModuleList(
-        #     ConvBlock(64) for _ in range(10)
-        # ])
-        # (
-           [     torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
+        self.robot_pose_and_led_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
                 torch.nn.ReLU(),
                 torch.nn.BatchNorm2d(10),
                 torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
                 # torch.nn.Sigmoid()
-            ])
+           )
         self.forward = self.forward_fn
 
     def forward_fn(self, x):
@@ -73,6 +70,7 @@ class MS_Model_s(Model_s):
         downsampled_out = self.upsample_layer(downsampled_out)
         concat = torch.cat([out, downsampled_out], dim = 1)
         # out = torch.cat([l(concat) for l in self.robot_pose_and_led_layer], dim = 1)
+        out = self.robot_pose_and_led_layer(concat)
         out = torch.cat(
             [
                 torch.nn.functional.sigmoid(out[:, :2, ...]), # pos and dist
