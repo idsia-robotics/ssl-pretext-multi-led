@@ -43,6 +43,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         dist_trues = []
         theta_trues = []
 
+        model.train()
         for batch in train_dataloader:
             optimizer.zero_grad()
 
@@ -116,6 +117,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             led_preds = []
             led_trues = []
 
+            model.eval()
+
             for batch in val_dataloader:
                 image = batch['image'].to(device)
                 
@@ -128,7 +131,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 o_losses.append(o_loss.item())
                 led_losses.append(led_loss.item())
 
-                pos_preds = model.predict_pos(image)
+                pos_preds = model.predict_pos_from_outs(image, out)
                 preds.extend(pos_preds)
                 trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
 
@@ -138,7 +141,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
                 led_trues.extend(batch["led_mask"])
 
             
-            errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
+            errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
             mlflow.log_metric('validation/position/median_error', np.median(errors), e)
             mlflow.log_metric('validation/orientation/mean_error', angle_difference(np.array(theta_preds), np.array(theta_trues)).mean(), e)
             mlflow.log_metric('validation/loss/proj', mean(p_losses), e)
@@ -176,7 +179,7 @@ def main():
     Validation data
     """
     if args.validation_dataset:
-        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=args.visible, compute_led_visibility=False)
+        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=True, compute_led_visibility=False)
         validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size = 64, num_workers=8)
     else:
         validation_dataloader = None
