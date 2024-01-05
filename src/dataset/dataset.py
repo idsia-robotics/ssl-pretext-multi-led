@@ -150,10 +150,10 @@ class H5Dataset(torch.utils.data.Dataset):
         batch['image'] = torch.tensor((self.data["image"][slice].astype(np.float32) / 255.).transpose(2, 0, 1))
         
         batch["timestamp"] = self.data["timestamp"][slice]
-        u_visible = (batch['proj_uvz'][0] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][0] < 640 + self.POS_ORB_SIZE // 2)
-        v_visible = (batch['proj_uvz'][1] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][1] < 360 + self.POS_ORB_SIZE // 2)
-        z_visible = (batch['proj_uvz'][2] > 0)
-        batch['robot_visible'] = (u_visible & v_visible & z_visible)
+        # u_visible = (batch['proj_uvz'][0] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][0] < 640 + self.POS_ORB_SIZE // 2)
+        # v_visible = (batch['proj_uvz'][1] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][1] < 360 + self.POS_ORB_SIZE // 2)
+        # z_visible = (batch['proj_uvz'][2] > 0)
+        batch['robot_visible'] = self.visibility_mask[slice]
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
         # batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
         batch["distance_rel"] = batch["pose_rel"][0]
@@ -256,7 +256,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("/home/nicholascarlotti/uni/phd/robomaster_led/robomaster_ds_testing.h5")
+    dataset = H5Dataset("data/robomaster_ds_large_testing.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()
