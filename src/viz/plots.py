@@ -2,6 +2,12 @@ from matplotlib import pyplot as plt
 import numpy as np
 from itertools import product
 from src.metrics import angle_difference
+import seaborn as sns
+from itertools import product
+import pandas as pd
+from matplotlib import colormaps as cm
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 
 def theta_scatter_plot(ds):
 
@@ -18,8 +24,8 @@ def theta_scatter_plot(ds):
     # ax.scatter(theta_true, theta_to_deg, color = 'red', label="Model")
     for k1, k2, in product([-1, 0, 1], [-1, 0, 1]):
         ax.scatter(theta_true + k1 * 2 * np.pi, theta_pred + k2 * 2 * np.pi, color = 'blue')
-    ax.set_xlabel("True")
-    ax.set_ylabel("Predicted")
+    ax.set_xlabel("True [rad]")
+    ax.set_ylabel("Predicted [rad]")
     ax.set_xlim([-np.pi * 1.1, np.pi * 1.1])
     ax.set_ylim([-np.pi * 1.1, np.pi * 1.1])
     ax.set_title("True relative orientation vs predicted")
@@ -65,6 +71,8 @@ def proj_error_distribution(ds):
     ax.hist(errors, bins = 300, density = True)
     ax.set_xlim(0, 700)
     ax.set_xlabel("Error [px]")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Image space prediction error distribution")
 
 
     return fig
@@ -79,6 +87,9 @@ def orientation_error_distribution(ds):
     ax.hist(errors, bins = 300, density=True)
     ax.set_xlim(0, np.pi)
     ax.set_xlabel("Error [rad]")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Orientation prediction error distribution")
+
 
     return fig
 
@@ -105,7 +116,8 @@ def distance_error_distribution(ds):
     ax.hist(errors, bins = 300, density=True)
     ax.set_xlim(0, np.pi)
     ax.set_xlabel("Error [m]")
-    ax.set_title("Absolute distance error distribution")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Predicted Distance Aboslute Error Distribution")
 
     return fig
 
@@ -122,8 +134,85 @@ def custom_scatter(x_key, y_key, title, correlation = False, plot_name = None, *
         else:
             ax.set_title(title)
         ax.set(**kwargs)
-        ax.set_aspect('equal')
+        # ax.set_aspect('equal')
         return fig
     if plot_name:
         scatter_fn.__name__ = plot_name
     return scatter_fn
+
+def sns_histplot(df, x_col, group_col):
+    return sns.histplot(df, x = x_col, hue=group_col, bins = 100, stat='probability', element='step')
+
+def pose_add_jointplot_with_title(title):
+
+    def wrapper(data):
+        res = pose_add_jointplot(data)
+        res.axes[0].set_title(title)
+    return wrapper
+
+def pose_add_jointplot(data):
+    pose_add = data["pose_add_30_30"]
+    dist_true = data["dist_true"]
+    theta_true = data["theta_true"]
+    
+    dist_quants = np.quantile(dist_true, [.2, .4, .6, .8, 1.])
+    theta_quants = np.quantile(theta_true, [.2, .4, .6, .8, 1.])
+    dist_bins = np.digitize(dist_true, dist_quants)
+    theta_bins = np.digitize(theta_true, theta_quants)
+
+    dist_bin_ids = np.arange(dist_quants.shape[0])
+    theta_bin_ids = np.arange(theta_quants.shape[0])
+
+    m = np.zeros(len(dist_quants) * len(theta_quants))
+
+    for i, (db, tb) in enumerate(product(dist_bin_ids, theta_bin_ids)):
+        joint_bin_mask = (dist_bins == db) & (theta_bins == tb)
+        m[i] = pose_add[joint_bin_mask].mean() * 100
+    
+    m = m.reshape(len(dist_quants), len(theta_quants))
+    
+    fig, ax = plt.subplots(1,1)
+
+    ax.matshow(m)
+
+    ax.set_yticks(np.arange(len(dist_quants)), labels=np.round(dist_quants, 2))
+    ax.set_xticks(np.arange(len(theta_quants)), labels=np.round(theta_quants, 2))
+    ax.set_xlabel("Orientation [rad]")
+    ax.set_ylabel("Distance [m]")
+
+    for i in range(len(theta_quants)):
+        for j in range(len(dist_quants)):
+            text = ax.text(j, i, np.round(m[i, j], 2),
+                        ha="center", va="center", color="w")
+    
+    ax.set_title(f"ADD per distance and orientation. Total ADD: {pose_add.mean() * 100:.2f}")
+    return fig
+
+
+def plot_multi_add(data):
+    dists = np.arange(.10, .30, .01)
+    thetas = np.arange(np.deg2rad(1), np.deg2rad(30), np.deg2rad(1.5))
+    X,Y = np.meshgrid(thetas, dists)
+
+    pos_cond = data["pose_rel_err"][:, None, None] < Y
+    theta_cond = data["theta_error"][:, None, None] < X
+
+    combined = pos_cond & theta_cond
+    ADD = combined.mean(axis = 0)
+
+    fig, ax = plt.subplots(1,1)
+    im = ax.imshow(ADD, cmap = 'plasma')
+    cset = ax.contour(ADD, np.arange(0, 1, .1), linewidths=2, colors = 'red')
+    ax.clabel(cset,inline=True,fmt='%1.1f',fontsize=10)
+    
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax = cax, orientation = 'vertical')
+    ax.set_yticks(np.arange(len(dists)), np.round(dists, 2))
+    ax.set_xticks(np.arange(len(thetas)), np.round(np.rad2deg(thetas), 0), rotation = 'vertical')
+    ax.set_xlabel("Theta threshold [deg]")
+    ax.set_ylabel("Distance threshold [m]")
+
+    ax.set_title("ADD score by different thresholds")
+    fig.tight_layout()
+    return fig
