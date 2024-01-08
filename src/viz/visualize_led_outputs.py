@@ -28,7 +28,8 @@ def main():
     args = parse_args('vis', 'inference')
     ds = get_dataset(args.dataset, camera_robot=args.robot_id, target_robots=[args.target_robot_id],
                      augmentations=args.augmentations, only_visible_robots=args.visible,
-                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
+                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
+                     compute_led_visibility=True)
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
     

@@ -119,6 +119,8 @@ class PositionGTWidget:
         self.gt_abs_l2 = self.axis.text(0, 0, "RM2")
         self.axis.set_xlim([-2, 2])
         self.axis.set_ylim([-2, 2])
+        self.axis.set_aspect('equal')
+        
 
     def update(self, data):
         rm1_pose = data["RM1_pose"].squeeze()[:3]
