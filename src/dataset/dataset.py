@@ -107,10 +107,13 @@ class H5Dataset(torch.utils.data.Dataset):
             
         if sample_count:
             print("Selecting subset")
-            np.random.seed(sample_count_seed)
-            self.valid_ds_indexes = np.random.choice(self.valid_ds_indexes,
-                                                     size=sample_count,
-                                                     replace=False)
+            if sample_count_seed < 0:
+                self.valid_ds_indexes = self.valid_ds_indexes[:sample_count]
+            else:
+                np.random.seed(sample_count_seed)
+                self.valid_ds_indexes = np.random.choice(self.valid_ds_indexes,
+                                                        size=sample_count,
+                                                        replace=False)
 
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
