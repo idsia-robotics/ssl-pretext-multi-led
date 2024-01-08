@@ -145,9 +145,9 @@ class PositionGTWidget:
 
 class ImageInferenceWidget(ImageWidget):
 
-    def __init__(self, plt_axis, title) -> None:
+    def __init__(self, plt_axis, title, color = 'red') -> None:
         super().__init__(plt_axis, title)
-        self.prediction_scatter = self.axis.scatter(0, 0, marker = 'o', s=1001, facecolor = 'none', edgecolors = 'red')
+        self.prediction_scatter = self.axis.scatter(0, 0, marker = 'o', s=1001, facecolor = 'none', edgecolors = color)
 
     def update(self, data, model):
         super().update(data)
@@ -186,10 +186,10 @@ class DistanceWidget:
         
 class DistanceInferenceWidget(DistanceWidget):
 
-    def __init__(self, plt_axis, title = '') -> None:
+    def __init__(self, plt_axis, title = '', color = 'red') -> None:
         super().__init__(plt_axis, title)
         self.dis_plot_pred = self.axis.scatter(0, 0, marker='o', s=51,
-                             facecolor='none', edgecolor='red')
+                             facecolor='none', edgecolor=color)
         
     def update(self, data, model):
         super().update(data)
@@ -210,9 +210,9 @@ class ModelDistanceOuput:
 
 
 class RobotOrientationInferenceWidget(RobotOrientationWidget):
-    def __init__(self, plt_axis, title) -> None:
+    def __init__(self, plt_axis, title, color = 'red') -> None:
         super().__init__(plt_axis, title)
-        self.pred_plot = plt_axis.scatter(0, 1.5, s = 250, color = 'red')
+        self.pred_plot = plt_axis.scatter(0, 1.5, s = 250, color = color)
 
     
     def update(self, data, model):
@@ -240,7 +240,6 @@ class RobotLedInferenceWidget:
 
         orb_size = H5Dataset.POS_ORB_SIZE
         scatter_size = (np.sqrt(2) * orb_size / 2) ** 2 * np.pi / 72
-        print(scatter_size)
 
         self.pos_scatters = [self.axes[i].scatter(0,0, facecolor = 'none', color = 'red', s = scatter_size, ) for i in led_out_idx]
 
