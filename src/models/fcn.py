@@ -195,7 +195,6 @@ class Model_s(BaseModel):
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
         norm_supervised_label = supervised_label / (supervised_label.sum() + 1e-15)
-        # proj_loss_norm[~supervised_label, ...] = 100
         proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * norm_supervised_label
         ori_loss_norm = (orientation_loss / 2)[..., 0] * norm_supervised_label
