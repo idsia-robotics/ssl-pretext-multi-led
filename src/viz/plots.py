@@ -140,8 +140,8 @@ def custom_scatter(x_key, y_key, title, correlation = False, plot_name = None, *
         scatter_fn.__name__ = plot_name
     return scatter_fn
 
-def sns_histplot(df, x_col, group_col):
-    return sns.histplot(df, x = x_col, hue=group_col, bins = 100, stat='probability', element='step')
+def sns_histplot(df, x_col, group_col, **kwargs):
+    return sns.histplot(df, x = x_col, hue=group_col, bins = 100, stat='probability', element='step', **kwargs)
 
 def pose_add_jointplot_with_title(title):
 

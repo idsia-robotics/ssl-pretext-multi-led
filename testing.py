@@ -77,7 +77,8 @@ def main():
     data["proj_error"] = np.linalg.norm(data["proj_true"] - data["proj_pred"], axis = 1)
 
     # ds = pd.DataFrame(data)
-    mean_dist_error = np.abs(data["dist_true"] - data["dist_pred"]).mean()
+    data["dist_abs_error"] = np.abs(data["dist_true"] - data["dist_pred"])
+    mean_dist_error = data["dist_abs_error"].mean()
     mean_angle_error = np.mean(data['theta_error'])
     median_proj_error = np.median(data["proj_error"])
 
@@ -108,8 +109,6 @@ def main():
     ori_err_add = data["theta_error"] < np.deg2rad(30)
     pose_add = pose_rel_err_add & ori_err_add
     data["pose_add_30_30"] = pose_add
-
-
 
     print(f"Median proj error: {median_proj_error}")
     print(f"Mean distance error: {mean_dist_error}")

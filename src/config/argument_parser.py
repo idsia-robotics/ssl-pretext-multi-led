@@ -22,8 +22,10 @@ def parse_args(*config):
 
         mlflow_group = group.add_argument_group()
         mlflow_group.add_argument("--checkpoint-id", type=str)
-        mlflow_group.add_argument("--run-name", type=str)
+        mlflow_group.add_argument("--run-name", type=str, default=datetime.today().isoformat())
         group.add_argument("--checkpoint-path", type=str)
+
+        parser.add_argument("--inference-dump", default=None, type=Path)
 
 
     if 'vis' in config:
@@ -50,6 +52,9 @@ def parse_args(*config):
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
 
 
+    if "comparison" in config:
+        parser.add_argument("--dump-files", type=Path, nargs="+")
+        parser.add_argument("--out-dir", type=Path, required=True)
 
 
 
