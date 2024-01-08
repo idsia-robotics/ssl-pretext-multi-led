@@ -135,8 +135,9 @@ class Model_s(BaseModel):
         dist_out = model_out[:, 1:2, ...]
         dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
-        error = (dist_gt[:, None, None, None] - dist_out) ** 2
-        return (error * pos_out_norm).sum(axis = [-1, -2])
+        dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
+        error = torch.sqrt((dist_gt - dist_pred) ** 2)
+        return error
 
     def __robot_orientation_loss(self, batch, model_out):
         theta = batch["pose_rel"][:, -1].to(model_out.device)
@@ -144,30 +145,12 @@ class Model_s(BaseModel):
         theta_sin = torch.sin(theta)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
 
-        model_out_cos = model_out[:, 2:3, ...]
-        model_out_sin = model_out[:, 3:4, ...]
-        cos_error = (theta_cos[:, None, None, None] - model_out_cos) ** 2
-        sin_error = (theta_sin[:, None, None, None] - model_out_sin) ** 2
-        return ((cos_error + sin_error) * pos_out_norm).sum(axis = [-1, -2])
+        model_out_cos = (model_out[:, 2:3, ...] * pos_out_norm).sum(axis = [-3, -1, -2])
+        model_out_sin = (model_out[:, 3:4, ...] * pos_out_norm).sum(axis = [-3, -1, -2])
+        cos_error = torch.sqrt((theta_cos - model_out_cos) ** 2)
+        sin_error = torch.sqrt((theta_sin - model_out_sin) ** 2)
+        return cos_error + sin_error
     
-
-    def __robot_pose_loss(self, batch, model_out : Tuple[torch.tensor, torch.tensor]):
-        proj_loss = self.__robot_position_loss(batch, model_out[:, :1, ...])
-        dist_loss = self.__robot_distance_loss(batch, model_out)
-        orientation_loss = self.__robot_orientation_loss(batch, model_out)
-
-        # Rescale all 3 losses to [0, 1]
-        # proj loss is already in [0, 1]
-
-        # Distance loss will never be exactly at the [0, 1] range because i'm not sure what the max
-        # distance between the camera and the robot will be in the dataset.
-        proj_loss_norm = proj_loss
-        dist_loss_norm = dist_loss / self.MAX_DIST_M
-        ori_loss_norm = orientation_loss / 4
-        return .5 * proj_loss_norm + .3 * dist_loss_norm + .2 * ori_loss_norm, \
-                    proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean()
-
-
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
@@ -175,7 +158,7 @@ class Model_s(BaseModel):
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        masked_led_outs = led_outs * torch.tile(pos_preds, dims = (1,))
+        masked_led_outs = led_outs * pos_preds
         led_preds = torch.clamp(masked_led_outs.sum(axis=[-1, -2]), 0., 1.)
         losses = [0] * 6
         # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
@@ -213,19 +196,6 @@ class Model_s(BaseModel):
         #     led_losses
 
 
-
-    def __position_and_orientation_forward(self, x):
-        out = self.layers(x)
-        out = torch.cat(
-            [
-                torch.nn.functional.sigmoid(out[:, :2, ...]),
-                #torch.nn.functional.tanh(out[:, 2:, ...]),
-                out[:, 2:, ...]
-            ],
-            axis = 1)
-        out = out * torch.tensor([1., self.MAX_DIST_M, 1., 1.])[None, :, None, None].to(out.device)
-        return out
-    
     def _pose_and_leds_forward(self, x):
         out = self.layers(x)
         out = torch.cat(
