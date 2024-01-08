@@ -19,7 +19,7 @@ def main():
 
     for file in args.dump_files:
         fname = file.stem
-        df = pd.read_csv(file, converters={"pose_add_30_30": lambda x: int(x == "True"),})
+        df = pd.read_pickle(file, converters={"pose_add_30_30": lambda x: int(x == "True"),})
         dfs.append(df)
         names.append(fname)
     

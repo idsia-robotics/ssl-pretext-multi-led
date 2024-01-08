@@ -1,3 +1,5 @@
+#!/bin/python3
+
 from pathlib import Path
 import mlflow
 import numpy as np
@@ -45,7 +47,8 @@ def main():
         'sin_pred' : [],
         'pose_rel_true' : [],
         'led_true' : [],
-        'led_pred' : []
+        'led_pred' : [],
+        'timestamp' : []
     }
 
     for batch in tqdm.tqdm(dataloader):
@@ -68,6 +71,7 @@ def main():
         data['theta_true'].extend(batch['pose_rel'][:, -1].numpy())
         data["pose_rel_true"].extend(batch["pose_rel"])
         data["led_true"].extend(batch["led_mask"])
+        data["timestamp"].extend(batch["timestamp"])
     for k, v in data.items():
         data[k] = np.stack(v)
 
@@ -117,6 +121,7 @@ def main():
     print(f"Pose ADD(10cm, 10deg): {data['pose_add_10_10'].mean()}")
     print(f"Pose ADD(20cm, 20deg): {data['pose_add_20_20'].mean()}")
     print(f"Pose ADD(30cm, 30deg): {data['pose_add_30_30'].mean()}")
+    print(data["timestamp"].min())
 
     aucs = []
     for i, led_label in enumerate(H5Dataset.LED_TYPES):
@@ -167,7 +172,7 @@ def main():
     if args.inference_dump:
         for k in data.keys():
             data[k] = data[k].tolist()
-        pd.DataFrame(data).to_csv(args.inference_dump)
+        pd.DataFrame(data).to_pickle(args.inference_dump)
 
 
 
