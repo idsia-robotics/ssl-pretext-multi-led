@@ -16,6 +16,10 @@ def main():
         pretext_weight = lmb
         task_weights = (1 - lmb) / 3
 
+        # Lamba 0 means that we don't supervise. We can skip multiple setting for sample count
+        if lmb == 0 and count > params['sample-count'][0]:
+            continue
+
         cmd = f"""
 python3.11 -m training -d data/robomaster_ds_training.h5 -t pose_and_led \
 -n {run_name} --experiment-id 0 \
