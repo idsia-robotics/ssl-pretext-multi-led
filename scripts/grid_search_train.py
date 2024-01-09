@@ -20,7 +20,7 @@ def main():
 python3.11 -m training -d data/robomaster_ds_training.h5 -t pose_and_led \
 -n {run_name} --experiment-id 0 \
 --device cuda:3 -a \
---epochs 1 --learning-rate 0.001 \
+--epochs 100 --learning-rate 0.001 \
 --w-proj {task_weights} --w-dist {task_weights} --w-ori {task_weights} --w-led {pretext_weight} \
 --labeled-count {count} --labeled-count-seed 0 --model-type model_s"""
         
