@@ -167,7 +167,8 @@ class Model_s(BaseModel):
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
             # losses[i] = losses[i] * led_visibility_mask[:, i]
             # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
-        return torch.stack(losses, dim = 1), losses
+        losses = torch.stack(losses, dim = 1)
+        return losses, losses.mean(0)
 
     
     def __robot_pose_and_leds_loss(self, batch, model_out, epoch, weights):
