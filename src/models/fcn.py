@@ -164,10 +164,10 @@ class Model_s(BaseModel):
         # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
         for i in range(led_preds.shape[1]):
             losses[i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].float(), reduction='none').mean()
+                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
             # losses[i] = losses[i] * led_visibility_mask[:, i]
             # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
-        return (sum(losses) / 6), losses
+        return torch.stack(losses, dim = 1), losses
 
     
     def __robot_pose_and_leds_loss(self, batch, model_out, epoch, weights):
@@ -177,14 +177,23 @@ class Model_s(BaseModel):
         led_loss, led_losses = self.__led_status_loss(batch, model_out)
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
+        unsupervised_label = ~supervised_label
+        norm_unsupervised_label = unsupervised_label / (unsupervised_label.sum() + 1e-15)
         norm_supervised_label = supervised_label / (supervised_label.sum() + 1e-15)
+        
+        
+        led_loss = ((led_loss).sum(1) / 6) * norm_unsupervised_label
+
+        # These are multipied with the norm tensor so that they are a linear combination
+        # that summed give a weighted sum.
         proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2)[..., 0] * norm_supervised_label
         ori_loss_norm = (orientation_loss / 4)[..., 0] * norm_supervised_label
+        
         loss = weights['pos'] * proj_loss_norm.sum() \
             + weights['dist'] * dist_loss_norm.sum()\
             + weights['ori'] * ori_loss_norm.sum() \
-            + led_loss * weights['led']
+            + weights['led'] *  led_loss.sum()
         
         return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
             led_loss.detach(), led_losses
