@@ -104,7 +104,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
 
         
 
-        if val_dataloader and e % validation_rate == 0 or e == epochs - 1:
+        if val_dataloader and (e % validation_rate == 0 or e == epochs - 1):
             preds = []
             trues = []
             losses = []
@@ -199,7 +199,8 @@ def main():
         mlflow.log_params(vars(args))
         train_loop(model, train_dataloader, validation_dataloader, args.device,
                    epochs=args.epochs, lr=args.learning_rate, loss_weights = loss_weights)
-        
+        print(run.info.run_id)
+
 
 if __name__ == "__main__":
     main()
