@@ -136,7 +136,7 @@ class Model_s(BaseModel):
         dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
         dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
-        error = torch.sqrt((dist_gt - dist_pred) ** 2)
+        error = (dist_gt - dist_pred) ** 2
         return error
 
     def __robot_orientation_loss(self, batch, model_out):
@@ -147,8 +147,8 @@ class Model_s(BaseModel):
 
         model_out_cos = (model_out[:, 2:3, ...] * pos_out_norm).sum(axis = [-3, -1, -2])
         model_out_sin = (model_out[:, 3:4, ...] * pos_out_norm).sum(axis = [-3, -1, -2])
-        cos_error = torch.sqrt((theta_cos - model_out_cos) ** 2)
-        sin_error = torch.sqrt((theta_sin - model_out_sin) ** 2)
+        cos_error = (theta_cos - model_out_cos) ** 2
+        sin_error = (theta_sin - model_out_sin) ** 2
         return cos_error + sin_error
     
 
@@ -179,8 +179,8 @@ class Model_s(BaseModel):
         supervised_label = batch["supervised_flag"].to(model_out.device)
         norm_supervised_label = supervised_label / (supervised_label.sum() + 1e-15)
         proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * norm_supervised_label
-        ori_loss_norm = (orientation_loss / 2)[..., 0] * norm_supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2)[..., 0] * norm_supervised_label
+        ori_loss_norm = (orientation_loss / 4)[..., 0] * norm_supervised_label
         loss = weights['pos'] * proj_loss_norm.sum() \
             + weights['dist'] * dist_loss_norm.sum()\
             + weights['ori'] * ori_loss_norm.sum() \
