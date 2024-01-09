@@ -195,8 +195,8 @@ class Model_s(BaseModel):
             + weights['ori'] * ori_loss_norm.sum() \
             + weights['led'] *  led_loss.sum()
         
-        return loss, proj_loss.detach().mean(), dist_loss.detach().mean(), orientation_loss.detach().mean(),\
-            led_loss.detach(), led_losses
+        return loss, proj_loss_norm.detach().sum(), dist_loss_norm.detach().sum(), ori_loss_norm.detach().sum(),\
+            led_loss.sum().detach(), led_losses
         # if epoch == -1:
         #     return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
         #     led_losses
