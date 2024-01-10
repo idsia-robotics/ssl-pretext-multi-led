@@ -179,31 +179,21 @@ class Model_s(BaseModel):
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
-        norm_unsupervised_label = unsupervised_label / (unsupervised_label.sum() + 1e-15)
-        norm_supervised_label = supervised_label / (supervised_label.sum() + 1e-15)
         
         
-        led_loss = ((led_loss).sum(1) / 6) * norm_unsupervised_label
+        led_loss = ((led_loss).sum(1) / 6) * unsupervised_label
 
-        # These are multipied with the norm tensor so that they are a linear combination
-        # that summed give a weighted sum.
-        proj_loss_norm = proj_loss[..., 0] * norm_supervised_label
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2)[..., 0] * norm_supervised_label
-        ori_loss_norm = (orientation_loss / 4)[..., 0] * norm_supervised_label
+        proj_loss_norm = proj_loss[..., 0] * supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2)[..., 0] * supervised_label
+        ori_loss_norm = (orientation_loss / 4)[..., 0] * supervised_label
         
-        loss = weights['pos'] * proj_loss_norm.sum() \
-            + weights['dist'] * dist_loss_norm.sum()\
-            + weights['ori'] * ori_loss_norm.sum() \
-            + weights['led'] *  led_loss.sum()
+        # loss = weights['pos'] * proj_loss_norm.sum() \
+        #     + weights['dist'] * dist_loss_norm.sum()\
+        #     + weights['ori'] * ori_loss_norm.sum() \
+        #     + weights['led'] *  led_loss.sum()
         
-        return loss, proj_loss_norm.detach().sum(), dist_loss_norm.detach().sum(), ori_loss_norm.detach().sum(),\
-            led_loss.sum().detach(), led_losses
-        # if epoch == -1:
-        #     return .8 * pose_loss + .0 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
-        #     led_losses
-        # else:
-        #     return .8 * pose_loss + .2 * led_loss, led_loss, proj_loss, dist_loss, ori_loss,\
-        #     led_losses
+        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
+            led_loss, led_losses
 
 
     def _pose_and_leds_forward(self, x):
