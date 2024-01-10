@@ -16,12 +16,10 @@ def main():
         pretext_weight = lmb
         task_weights = (1 - lmb) / 3
 
-        # Lamba 0 means that we don't supervise. We can skip multiple setting for sample count
-
         cmd = f"""
 python3.11 -m training -d data/robomaster_ds_training.h5 -t pose_and_led \
 -n {run_name} --experiment-id 0 \
---device cuda:3 -a \
+--device cuda:3 -a -v data/robomaster_ds_validation.h5\
 --epochs 100 --learning-rate 0.001 \
 --w-proj {task_weights} --w-dist {task_weights} --w-ori {task_weights} --w-led {pretext_weight} \
 --labeled-count {count} --labeled-count-seed 0 --model-type model_s"""
