@@ -94,7 +94,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         
         mlflow.log_metric('train/position/median_error', np.median(errors), e)
         mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
-        mlflow.log_metric('train/loss', mean(losses), e)
+        mlflow.log_metric('train/loss', sum(losses), e)
         mlflow.log_metric('train/loss/proj', sum(p_losses) / (supervised_count + 1e-15), e)
         mlflow.log_metric('train/loss/ori', sum(o_losses) / (supervised_count + 1e-15), e)
         mlflow.log_metric('train/loss/dist', sum(d_losses) / (supervised_count + 1e-15), e)
