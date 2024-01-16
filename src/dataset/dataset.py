@@ -106,7 +106,7 @@ class H5Dataset(torch.utils.data.Dataset):
     
             
         if sample_count:
-            print("Selecting subset")
+            sample_count_seed = sample_count_seed if sample_count_seed else 0
             if sample_count_seed < 0:
                 self.valid_ds_indexes = self.valid_ds_indexes[:sample_count]
             else:
@@ -133,7 +133,9 @@ class H5Dataset(torch.utils.data.Dataset):
         slice = self.valid_ds_indexes[slice]
         # This is tailored for 2 total robots. Subject to change in the future
         slice_robot_id = self.data["robot_id"][slice]
+
         batch = {}
+        # batch['proj_x'] = np.array(self.data[f"RM{slice_robot_id}_proj_x"][slice])
         
         for proj_uvz_key in self.proj_uvz_keys[slice_robot_id]:
             batch["proj_uvz"] = torch.tensor(self.data[proj_uvz_key][slice])
@@ -225,13 +227,12 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-            RandomHorizontalFlip((360, 640)),
-            RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
+            # RandomHorizontalFlip((360, 640)),
+            # RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
             SimplexNoiseTransform((360, 640)),
             ColorJitterAugmentation(
                 brightness=.4,
                 hue=.2
-
             )
         ])
 
@@ -259,7 +260,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("data/robomaster_ds_large_testing.h5")
+    dataset = H5Dataset("../robomaster_led/robomaster_ds_large_training.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()
