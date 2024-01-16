@@ -125,7 +125,8 @@ def main():
 
     aucs = []
     for i, led_label in enumerate(H5Dataset.LED_TYPES):
-        auc = binary_auc(data["led_pred"][:, i], data["led_true"][:, i])
+        visible_mask = data["led_visibility_mask"][:, i]
+        auc = binary_auc(data["led_pred"][visible_mask, i], data["led_true"][visible_mask, i])
         print(f"AUC for led {led_label}: {auc}")
 
     figures = [
