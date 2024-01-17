@@ -20,7 +20,8 @@ def main():
     args = parse_args('vis', 'inference')
     ds = get_dataset(args.dataset, camera_robot=args.robot_id,
                      augmentations=args.augmentations, only_visible_robots=args.visible,
-                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
+                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
+                     compute_led_visibility=True)
     dataloader = DataLoader(ds, batch_size = 64, shuffle = False)
 
     using_mlflow = False
@@ -48,7 +49,8 @@ def main():
         'pose_rel_true' : [],
         'led_true' : [],
         'led_pred' : [],
-        'timestamp' : []
+        'timestamp' : [],
+        'led_visibility_mask' : []
     }
 
     for batch in tqdm.tqdm(dataloader):
@@ -72,6 +74,8 @@ def main():
         data["pose_rel_true"].extend(batch["pose_rel"])
         data["led_true"].extend(batch["led_mask"])
         data["timestamp"].extend(batch["timestamp"])
+        data["led_visibility_mask"].extend(batch["led_visibility_mask"])
+
     for k, v in data.items():
         data[k] = np.stack(v)
 
