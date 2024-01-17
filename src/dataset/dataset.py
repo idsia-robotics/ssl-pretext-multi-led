@@ -230,10 +230,10 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
             # RandomHorizontalFlip((360, 640)),
             # RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
             SimplexNoiseTransform((360, 640)),
-            ColorJitterAugmentation(
-                brightness=.4,
-                hue=.2
-            )
+#            ColorJitterAugmentation(
+#                brightness=.4,
+#                hue=.2
+#            )
         ])
 
     camera_robot_id_int = None
