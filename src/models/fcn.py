@@ -184,8 +184,8 @@ class Model_s(BaseModel):
         led_loss = ((led_loss).sum(1) / 6) * unsupervised_label
 
         proj_loss_norm = proj_loss[..., 0] * supervised_label
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2)[..., 0] * supervised_label
-        ori_loss_norm = (orientation_loss / 4)[..., 0] * supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * supervised_label
+        ori_loss_norm = (orientation_loss / 2)[..., 0] * supervised_label
         
         # loss = weights['pos'] * proj_loss_norm.sum() \
         #     + weights['dist'] * dist_loss_norm.sum()\
