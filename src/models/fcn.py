@@ -135,7 +135,6 @@ class Model_s(BaseModel):
         dist_out = model_out[:, 1:2, ...]
         dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
-        breakpoint()
         dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
         error = (dist_gt - dist_pred) ** 2
         return error
