@@ -10,9 +10,12 @@ from tqdm import trange
 import numpy as np
 
 
-def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epochs, lr = .001, validation_rate = 10,
-               checkpoint_logging_rate = 10, loss_weights = {'pos' : .2,'dist' : .0,'ori' : .0,'led' : .8},
-               supervised_count = 1, unsupervised_count = 1):
+def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
+               epochs, supervised_count, unsupervised_count,
+               lr = .001, validation_rate = 10,
+               checkpoint_logging_rate = 10,
+               loss_weights = {'pos' : .2,'dist' : .0,'ori' : .0,'led' : .8},
+               ):
     
 
     optimizer = model.optimizer(lr)
@@ -27,6 +30,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         ],
         milestones=[3,]
     )
+
+    total_training_samples = supervised_count + unsupervised_count
     
     for e in trange(epochs):
         losses = []
@@ -59,28 +64,28 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             theta_trues.extend(batch["pose_rel"][:, -1])
 
 
-            p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e,
-                                                                            weights = loss_weights)
-            summed_p_loss = p_loss.sum()
-            summed_d_loss = d_loss.sum()
-            summed_o_loss = o_loss.sum()
-            summed_l_loss = led_loss.sum()
+            p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
+            summed_p_loss = p_loss.mean()
+            summed_d_loss = d_loss.mean()
+            summed_o_loss = o_loss.mean()
+            summed_l_loss = led_loss.mean()
 
             supervised_loss = (
                     loss_weights['pos'] * summed_p_loss\
                   + loss_weights['dist'] * summed_d_loss \
-                  + loss_weights['ori'] * summed_o_loss) / (supervised_count + 1e-15)
-            unsupervised_loss = (loss_weights['led'] * summed_l_loss) / (unsupervised_count + 1e-15)
+                  + loss_weights['ori'] * summed_o_loss) / (supervised_count + 1e-15) * total_training_samples
+            unsupervised_loss = (loss_weights['led'] * summed_l_loss) / (unsupervised_count + 1e-15) * total_training_samples
             
-            loss = unsupervised_loss + supervised_loss
+            # loggable_loss = unsupervised_loss + supervised_loss
+            loss = supervised_loss + unsupervised_loss
             loss.backward()
             optimizer.step()
 
             losses.append(loss.detach().item())
-            p_losses.append(summed_p_loss.detach().item())
-            d_losses.append(summed_d_loss.detach().item())
-            o_losses.append(summed_o_loss.detach().item())
-            led_losses.append(summed_l_loss.detach().item())
+            p_losses.append(summed_p_loss.detach().item() / (supervised_count + 1e-15) * total_training_samples)
+            d_losses.append(summed_d_loss.detach().item() / (supervised_count + 1e-15) * total_training_samples)
+            o_losses.append(summed_o_loss.detach().item() / (supervised_count + 1e-15) * total_training_samples)
+            led_losses.append(summed_l_loss.detach().item() / (unsupervised_count + 1e-15) * total_training_samples)
             multiple_led_losses.append([l.item() for l in m_led_loss])
 
             dpreds = model.predict_dist_from_outs(out)
@@ -94,11 +99,11 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
         
         mlflow.log_metric('train/position/median_error', np.median(errors), e)
         mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
-        mlflow.log_metric('train/loss', sum(losses), e)
-        mlflow.log_metric('train/loss/proj', sum(p_losses) / (supervised_count + 1e-15), e)
-        mlflow.log_metric('train/loss/ori', sum(o_losses) / (supervised_count + 1e-15), e)
-        mlflow.log_metric('train/loss/dist', sum(d_losses) / (supervised_count + 1e-15), e)
-        mlflow.log_metric('train/loss/led', sum(led_losses) / (unsupervised_count + 1e-15), e)
+        mlflow.log_metric('train/loss', mean(losses), e)
+        mlflow.log_metric('train/loss/proj', mean(p_losses), e)
+        mlflow.log_metric('train/loss/ori', mean(o_losses), e)
+        mlflow.log_metric('train/loss/dist', mean(d_losses), e)
+        mlflow.log_metric('train/loss/led', mean(led_losses), e)
 
         mlflow.log_metric('train/loss/coefficients/proj', loss_weights['pos'], e)
         mlflow.log_metric('train/loss/coefficients/dist', loss_weights['dist'], e)
@@ -135,8 +140,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device, epoc
             for batch in val_dataloader:
                 image = batch['image'].to(device)
                 
-                out = model.forward(image)
-                p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out, e, weights = loss_weights)
+                out = model(image)
+                p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
                 mean_p_loss = p_loss.mean().detach()
                 mean_d_loss = d_loss.mean().detach()
                 mean_o_loss = o_loss.mean().detach()
@@ -220,12 +225,13 @@ def main():
 
     }
     ds_size = len(train_dataset)
+    supervised_count = args.labeled_count if args.labeled_count else ds_size
     with mlflow.start_run(experiment_id=args.experiment_id, run_name=args.run_name) as run:
         mlflow.log_params(vars(args))
         train_loop(model, train_dataloader, validation_dataloader, args.device,
                    epochs=args.epochs, lr=args.learning_rate, loss_weights = loss_weights,
-                   supervised_count=args.labeled_count,
-                   unsupervised_count=ds_size - args.labeled_count)
+                   supervised_count=supervised_count,
+                   unsupervised_count=ds_size - supervised_count)
         print(run.info.run_id)
 
 

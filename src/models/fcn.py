@@ -171,7 +171,7 @@ class Model_s(BaseModel):
         return losses, losses.mean(0)
 
     
-    def __robot_pose_and_leds_loss(self, batch, model_out, epoch, weights):
+    def __robot_pose_and_leds_loss(self, batch, model_out):
         proj_loss = self.__robot_position_loss(batch, model_out[:, :1, ...])
         dist_loss = self.__robot_distance_loss(batch, model_out)
         orientation_loss = self.__robot_orientation_loss(batch, model_out)
