@@ -128,13 +128,14 @@ class Model_s(BaseModel):
         pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
         pos_pred_norm = model_out / pos_pred_sum
         self.__pose_pred_norm_cache = pos_pred_norm.detach()
-        loss = 1 - (pos_pred_norm * pos_true).sum(axis = (-1, -2))
+        loss = 1 - (pos_pred_norm * pos_true).sum(axis = (-3, -1, -2))
         return loss
     
     def __robot_distance_loss(self, batch, model_out):
         dist_out = model_out[:, 1:2, ...]
         dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
+        breakpoint()
         dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
         error = (dist_gt - dist_pred) ** 2
         return error
@@ -183,9 +184,9 @@ class Model_s(BaseModel):
         
         led_loss = ((led_loss).sum(1) / 6) * unsupervised_label
 
-        proj_loss_norm = proj_loss[..., 0] * supervised_label
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M)[..., 0] * supervised_label
-        ori_loss_norm = (orientation_loss / 2)[..., 0] * supervised_label
+        proj_loss_norm = proj_loss * supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
+        ori_loss_norm = (orientation_loss / 4) * supervised_label
         
         # loss = weights['pos'] * proj_loss_norm.sum() \
         #     + weights['dist'] * dist_loss_norm.sum()\
