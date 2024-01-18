@@ -65,27 +65,26 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
 
             p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
-            summed_p_loss = p_loss.mean()
-            summed_d_loss = d_loss.mean()
-            summed_o_loss = o_loss.mean()
-            summed_l_loss = led_loss.mean()
+            summed_p_loss = p_loss.sum()
+            summed_d_loss = d_loss.sum()
+            summed_o_loss = o_loss.sum()
+            summed_l_loss = led_loss.sum()
 
             supervised_loss = (
                     loss_weights['pos'] * summed_p_loss\
                   + loss_weights['dist'] * summed_d_loss \
-                  + loss_weights['ori'] * summed_o_loss) / (supervised_count + 1e-15) * total_training_samples
-            unsupervised_loss = (loss_weights['led'] * summed_l_loss) / (unsupervised_count + 1e-15) * total_training_samples
+                  + loss_weights['ori'] * summed_o_loss) / (supervised_count + 1e-15)
+            unsupervised_loss = (loss_weights['led'] * summed_l_loss) / (unsupervised_count + 1e-15)
             
-            # loggable_loss = unsupervised_loss + supervised_loss
-            loss = supervised_loss + unsupervised_loss
+            loss = unsupervised_loss + supervised_loss
             loss.backward()
             optimizer.step()
 
             losses.append(loss.detach().item())
-            p_losses.append(summed_p_loss.detach().item() / (supervised_count + 1e-15) * total_training_samples)
-            d_losses.append(summed_d_loss.detach().item() / (supervised_count + 1e-15) * total_training_samples)
-            o_losses.append(summed_o_loss.detach().item() / (supervised_count + 1e-15) * total_training_samples)
-            led_losses.append(summed_l_loss.detach().item() / (unsupervised_count + 1e-15) * total_training_samples)
+            p_losses.append(summed_p_loss.detach().item())
+            d_losses.append(summed_d_loss.detach().item())
+            o_losses.append(summed_o_loss.detach().item())
+            led_losses.append(summed_l_loss.detach().item())
             multiple_led_losses.append([l.item() for l in m_led_loss])
 
             dpreds = model.predict_dist_from_outs(out)
@@ -99,11 +98,11 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         
         mlflow.log_metric('train/position/median_error', np.median(errors), e)
         mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
-        mlflow.log_metric('train/loss', mean(losses), e)
-        mlflow.log_metric('train/loss/proj', mean(p_losses), e)
-        mlflow.log_metric('train/loss/ori', mean(o_losses), e)
-        mlflow.log_metric('train/loss/dist', mean(d_losses), e)
-        mlflow.log_metric('train/loss/led', mean(led_losses), e)
+        mlflow.log_metric('train/loss', sum(losses), e)
+        mlflow.log_metric('train/loss/proj', sum(p_losses) / (supervised_count + 1e-15), e)
+        mlflow.log_metric('train/loss/ori', sum(o_losses) / (supervised_count + 1e-15), e)
+        mlflow.log_metric('train/loss/dist', sum(d_losses) / (supervised_count + 1e-15), e)
+        mlflow.log_metric('train/loss/led', sum(led_losses) / (unsupervised_count + 1e-15), e)
 
         mlflow.log_metric('train/loss/coefficients/proj', loss_weights['pos'], e)
         mlflow.log_metric('train/loss/coefficients/dist', loss_weights['dist'], e)
