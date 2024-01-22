@@ -25,8 +25,6 @@ class RandomHorizontalFlip():
             
             batch["led_tl"] = batch["led_tr"]
             batch["led_tr"] = swap
-
-                
             
             swap = batch["led_mask"][1] 
             batch["led_mask"][1] = batch["led_mask"][2]
@@ -128,9 +126,6 @@ class RandomRotTranslTransform():
         angle = (2 * torch.rand(1) - 1) * self.max_angle
 
         translate = (2 * torch.rand(2) - 1) * self.max_translate * size
-        v_transl = torch.clamp(translate[0], self.bound - batch["proj_uvz"][1], (size[0] - self.bound) - batch["proj_uvz"][1])
-        u_transl = torch.clamp(translate[1], self.bound - batch["proj_uvz"][0], (size[1] - self.bound) - batch["proj_uvz"][0])
-        translate = torch.tensor([u_transl, v_transl])
 
         sin = torch.sin(angle * torch.pi / 180).item()
         cos = torch.cos(angle * torch.pi / 180).item()
