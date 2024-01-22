@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from datetime import datetime
+from numpy import Inf
 
 def parse_args(*config):
     parser = argparse.ArgumentParser()
@@ -16,6 +17,7 @@ def parse_args(*config):
     parser.add_argument("--visible", action='store_true')
     parser.add_argument("--experiment-id", type=str, default=None)
     parser.add_argument("-t", "--task", type=str)
+    parser.add_argument("--dist-range", type=float, nargs="+", default = [-Inf, Inf])
 
     if 'inference' in config:
         group = parser.add_mutually_exclusive_group()
@@ -23,6 +25,7 @@ def parse_args(*config):
         mlflow_group = group.add_argument_group()
         mlflow_group.add_argument("--checkpoint-id", type=str)
         mlflow_group.add_argument("--run-name", type=str, default=datetime.today().isoformat())
+        mlflow_group.add_argument("--run-id", type=str, default=None)
         group.add_argument("--checkpoint-path", type=str)
 
         parser.add_argument("--inference-dump", default=None, type=Path)
@@ -34,6 +37,7 @@ def parse_args(*config):
         parser.add_argument("-r", "--robot-id", type=str, default="RM1")
         parser.add_argument("-tr", "--target-robot-id", type=str, default="RM2")
         parser.add_argument("--receptive-field", default=None, type=float)
+        parser.add_argument("--range", default=None, nargs="+", type=int)
 
 
 
