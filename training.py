@@ -92,7 +92,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             theta_preds.extend(tpreds)
             dist_preds.extend(dpreds) 
 
-        errors = np.linalg.norm(np.array(preds) - np.array(trues), axis = 1)
+        errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
         dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
         multiple_led_losses = np.stack(multiple_led_losses, axis = 0)
         
