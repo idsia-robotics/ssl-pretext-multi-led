@@ -49,7 +49,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.keys = keys
         self.data = self.h5f
         self.transform = transform
-        self.robot_ids = self.data.attrs["RIDs"]
+        self.robot_ids = set(self.data.attrs["RIDs"])
         self.robot_ids_int = [int(rid[2:]) for rid in self.robot_ids]
         self.compute_visibility_mask = compute_led_visibility
 
@@ -179,7 +179,7 @@ class H5Dataset(torch.utils.data.Dataset):
         batch["supervised_flag"] = self.supervised_mask[slice]
 
         if self.compute_visibility_mask:
-            other_pose_rel = self.data["RM" + str(3 - slice_robot_id) + "_pose_rel_RM" + str(slice_robot_id)][slice]
+            other_pose_rel = self.data[self.__other_rid('RM' + str(slice_robot_id)) + "_pose_rel_RM" + str(slice_robot_id)][slice]
             other_theta_rel = np.arctan2(other_pose_rel[1], other_pose_rel[0])
             led_visibility = (other_theta_rel >= self.LED_VISIBILITY_RANGES_RAD[:, :, 0]) &\
                 (other_theta_rel <= self.LED_VISIBILITY_RANGES_RAD[:, :, 1])
@@ -227,6 +227,9 @@ class H5Dataset(torch.utils.data.Dataset):
                 v = int(proj_uvz[1]) // align_to * align_to + align_to // 2 + padding
             result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
         return result[padding:-padding, padding:-padding]
+    
+    def __other_rid(self, rid):
+        return list(self.robot_ids - set([rid,]))[0]
     
 
 def get_dataset(dataset_path, camera_robot = None, target_robots = None, augmentations = False,
