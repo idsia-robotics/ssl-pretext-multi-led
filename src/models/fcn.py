@@ -162,7 +162,6 @@ class Model_s(BaseModel):
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        breakpoint()
         masked_led_outs = led_outs * pos_trues
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
