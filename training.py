@@ -31,8 +31,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         milestones=[3,]
     )
 
-    total_training_samples = supervised_count + unsupervised_count
-    
     for e in trange(epochs):
         losses = []
         p_losses = []
@@ -87,10 +85,11 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             led_losses.append(summed_l_loss.detach().item())
             multiple_led_losses.append([l.item() for l in m_led_loss])
 
-            dpreds = model.predict_dist_from_outs(out)
-            tpreds=  model.predict_orientation_from_outs(out)
-            theta_preds.extend(tpreds)
-            dist_preds.extend(dpreds) 
+            with torch.no_grad():
+                dpreds = model.predict_dist_from_outs(out)
+                tpreds=  model.predict_orientation_from_outs(out)
+                theta_preds.extend(tpreds)
+                dist_preds.extend(dpreds) 
 
         errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
         dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
@@ -136,37 +135,38 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
             model.eval()
 
-            for batch in val_dataloader:
-                image = batch['image'].to(device)
+            with torch.no_grad():
+                for batch in val_dataloader:
+                    image = batch['image'].to(device)
+                    
+                    out = model(image)
+                    p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
+                    mean_p_loss = p_loss.mean().detach()
+                    mean_d_loss = d_loss.mean().detach()
+                    mean_o_loss = o_loss.mean().detach()
+                    mean_l_loss = led_loss.mean().detach()
+
+                    supervised_loss = (
+                        loss_weights['pos'] * mean_p_loss\
+                    + loss_weights['dist'] * mean_d_loss \
+                    + loss_weights['ori'] * mean_o_loss)
+                    unsupervised_loss = (loss_weights['led'] * mean_l_loss)
                 
-                out = model(image)
-                p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
-                mean_p_loss = p_loss.mean().detach()
-                mean_d_loss = d_loss.mean().detach()
-                mean_o_loss = o_loss.mean().detach()
-                mean_l_loss = led_loss.mean().detach()
+                    loss = unsupervised_loss + supervised_loss
+                    losses.append(loss.item())
+                    p_losses.append(mean_p_loss.item())
+                    d_losses.append(mean_d_loss.item())
+                    o_losses.append(mean_o_loss.item())
+                    led_losses.append(mean_l_loss.item())
 
-                supervised_loss = (
-                    loss_weights['pos'] * mean_p_loss\
-                  + loss_weights['dist'] * mean_d_loss \
-                  + loss_weights['ori'] * mean_o_loss)
-                unsupervised_loss = (loss_weights['led'] * mean_l_loss)
-            
-                loss = unsupervised_loss + supervised_loss
-                losses.append(loss.item())
-                p_losses.append(mean_p_loss.item())
-                d_losses.append(mean_d_loss.item())
-                o_losses.append(mean_o_loss.item())
-                led_losses.append(mean_l_loss.item())
+                    pos_preds = model.predict_pos_from_outs(image, out)
+                    preds.extend(pos_preds)
+                    trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
 
-                pos_preds = model.predict_pos_from_outs(image, out)
-                preds.extend(pos_preds)
-                trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
-
-                theta_trues.extend(batch["pose_rel"][:, -1])
-                theta_preds.extend(model.predict_orientation_from_outs(out))
-                led_preds.extend(model.predict_leds_from_outs(out))
-                led_trues.extend(batch["led_mask"])
+                    theta_trues.extend(batch["pose_rel"][:, -1])
+                    theta_preds.extend(model.predict_orientation_from_outs(out))
+                    led_preds.extend(model.predict_leds_from_outs(out))
+                    led_trues.extend(batch["led_mask"])
 
             
             errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
@@ -201,7 +201,7 @@ def main():
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8, pin_memory='cuda' in args.device)
 
     """
     Validation data
@@ -225,6 +225,9 @@ def main():
     }
     ds_size = len(train_dataset)
     supervised_count = args.labeled_count if args.labeled_count else ds_size
+    if 'cuda' in args.device:
+        torch.backends.cudnn.benchmark = True
+
     with mlflow.start_run(experiment_id=args.experiment_id, run_name=args.run_name) as run:
         mlflow.log_params(vars(args))
         train_loop(model, train_dataloader, validation_dataloader, args.device,
