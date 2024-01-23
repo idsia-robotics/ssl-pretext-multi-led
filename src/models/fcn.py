@@ -154,14 +154,20 @@ class Model_s(BaseModel):
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        pos_preds = self.__pose_pred_norm_cache.detach()
+        # pos_preds = self.__pose_pred_norm_cache.detach()
+        pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+        pos_trues = torch.nn.MaxPool2d(8, 8, 0)(pos_trues)
+
+        pos_trues = pos_trues / pos_trues.sum((-1, -2), keepdims = True)
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        masked_led_outs = led_outs * pos_preds
-        led_preds = torch.clamp(masked_led_outs.sum(axis=[-1, -2]), 0., 1.)
+        breakpoint()
+        masked_led_outs = led_outs * pos_trues
+        led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
         # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
+        # breakpoint()
         for i in range(led_preds.shape[1]):
             losses[i] = torch.nn.functional.binary_cross_entropy(
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
@@ -181,8 +187,7 @@ class Model_s(BaseModel):
         unsupervised_label = ~supervised_label
         
         
-        led_loss = ((led_loss).sum(1) / 6) * unsupervised_label
-
+        led_loss = led_loss.mean(-1) * unsupervised_label
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
         ori_loss_norm = (orientation_loss / 4) * supervised_label
