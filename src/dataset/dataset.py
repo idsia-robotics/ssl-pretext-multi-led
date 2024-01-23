@@ -210,7 +210,7 @@ class H5Dataset(torch.utils.data.Dataset):
     def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20, align_to = None):
         # Padded so i can easily crop it out
         if not robot_visible:
-            return np.zeros(map_size)
+            return np.ones(map_size)
 
         padding = orb_size
         result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0) # 440x720
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("../robomaster_led/robomaster_ds_large_training.h5")
+    dataset = H5Dataset("../robomaster_led/robomaster_ds_full_on_training.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()

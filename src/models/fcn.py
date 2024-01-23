@@ -158,7 +158,7 @@ class Model_s(BaseModel):
         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
         pos_trues = torch.nn.MaxPool2d(8, 8, 0)(pos_trues)
 
-        pos_trues = pos_trues / pos_trues.sum((-1, -2), keepdims = True)
+        pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + 1e-15)
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
@@ -166,10 +166,9 @@ class Model_s(BaseModel):
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = [0] * 6
         # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
-        # breakpoint()
         for i in range(led_preds.shape[1]):
             losses[i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
+                    led_preds[:, i], led_trues[:, i].double(), reduction='none')
             # losses[i] = losses[i] * led_visibility_mask[:, i]
             # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
         losses = torch.stack(losses, dim = 1)
