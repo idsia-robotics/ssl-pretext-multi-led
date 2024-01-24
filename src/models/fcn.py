@@ -78,7 +78,7 @@ class Model_s(BaseModel):
                 self.core_layers,
                 self.robot_position_layer
             )
-            self.loss = self.__robot_position_loss
+            self.loss = self._robot_position_loss
         elif self.task == 'pose':
             self.robot_pose_layer = torch.nn.Sequential(
                 torch.nn.Conv2d(32, 4, kernel_size=1, padding=0, stride=1),
@@ -104,7 +104,7 @@ class Model_s(BaseModel):
                 # torch.nn.Sigmoid()
             )
             self.forward = self._pose_and_leds_forward
-            self.loss = self.__robot_pose_and_leds_loss
+            self.loss = self._robot_pose_and_leds_loss
 
             self.layers = torch.nn.Sequential(
                 self.core_layers,
@@ -121,7 +121,7 @@ class Model_s(BaseModel):
         y_true_classes = torch.nn.functional.one_hot(batch['robot_visible'].long(), 2).float()
         return bce(y_pred_probs, y_true_classes)
 
-    def __robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
+    def _robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
         pos_true = torch.nn.MaxPool2d(8, 8, 0)(pos_true)
 
@@ -131,7 +131,7 @@ class Model_s(BaseModel):
         loss = 1 - (pos_pred_norm * pos_true).sum(axis = (-3, -1, -2))
         return loss
     
-    def __robot_distance_loss(self, batch, model_out):
+    def _robot_distance_loss(self, batch, model_out):
         dist_out = model_out[:, 1:2, ...]
         dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
@@ -139,7 +139,7 @@ class Model_s(BaseModel):
         error = (dist_gt - dist_pred) ** 2
         return error
 
-    def __robot_orientation_loss(self, batch, model_out):
+    def _robot_orientation_loss(self, batch, model_out):
         theta = batch["pose_rel"][:, -1].to(model_out.device)
         theta_cos = torch.cos(theta)
         theta_sin = torch.sin(theta)
@@ -152,7 +152,7 @@ class Model_s(BaseModel):
         return cos_error + sin_error
     
 
-    def __led_status_loss(self, batch, model_out):
+    def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
         # pos_preds = self.__pose_pred_norm_cache.detach()
         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
@@ -174,16 +174,17 @@ class Model_s(BaseModel):
         return losses, losses.mean(0)
 
     
-    def __robot_pose_and_leds_loss(self, batch, model_out):
-        proj_loss = self.__robot_position_loss(batch, model_out[:, :1, ...])
-        dist_loss = self.__robot_distance_loss(batch, model_out)
-        orientation_loss = self.__robot_orientation_loss(batch, model_out)
-        led_loss, led_losses = self.__led_status_loss(batch, model_out)
+    def _robot_pose_and_leds_loss(self, batch, model_out):
+        proj_loss = self._robot_position_loss(batch, model_out[:, :1, ...])
+        dist_loss = self._robot_distance_loss(batch, model_out)
+        orientation_loss = self._robot_orientation_loss(batch, model_out)
+        led_loss, led_losses = self._led_status_loss(batch, model_out)
 
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
-        led_loss = led_loss.mean(-1) * unsupervised_label
+        led_loss[:, :-1] = 0
+        led_loss = led_loss.sum(-1) * unsupervised_label
         # Testing if zeroing out all but one losses leads
         # to a model capable of classifying that led.
 
@@ -281,3 +282,91 @@ class Model_s(BaseModel):
         led_maps = outs[:, 4:, ...]
         masked_led = led_maps * pos_map_norm[:, None, ...]
         return masked_led.sum(axis = [-1, -2]).detach().cpu().numpy()
+
+@ModelRegistry("model_s_opt")
+class Model_s_optimized(Model_s):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.core_layers = torch.nn.Sequential(
+            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, bias=False),
+            torch.nn.BatchNorm2d(6),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1, bias=False),
+            torch.nn.BatchNorm2d(8),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1, bias=False),
+            torch.nn.BatchNorm2d(16),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1, bias=False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=6, stride=1, dilation = 3, bias=False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=4, stride=1, dilation=2, bias=False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
+
+        )
+
+        if self.task == 'presence':
+            self.robot_presence_layer = torch.nn.Sequential(
+                torch.nn.Flatten(),
+                torch.nn.LazyLinear(256),
+                torch.nn.LazyLinear(1),
+                torch.nn.Sigmoid()
+            )
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+                self.robot_presence_layer
+            )
+            self.loss = self.__robot_presence_loss
+        if self.task == 'position':
+            self.robot_position_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
+                torch.nn.Conv2d(3, 1, kernel_size=1, padding=0, stride=1),
+                torch.nn.Sigmoid()
+            )
+
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+                self.robot_position_layer
+            )
+            self.loss = self._robot_position_loss
+        elif self.task == 'pose':
+            self.robot_pose_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(32, 4, kernel_size=1, padding=0, stride=1),
+                torch.nn.ReLU(),
+                torch.nn.BatchNorm2d(4),
+                torch.nn.Conv2d(4, 4, kernel_size=1, padding=0, stride=1),
+                # torch.nn.Sigmoid()
+            )
+
+            self.forward = self.__position_and_orientation_forward
+            self.loss = self.__robot_pose_loss
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+                self.robot_pose_layer
+            )
+            self.MAX_DIST_M = 5.
+        elif self.task == 'pose_and_led':
+            self.robot_pose_and_led_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1, bias=False),
+                torch.nn.BatchNorm2d(10),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+                # torch.nn.Sigmoid()
+            )
+            self.forward = self._pose_and_leds_forward
+            self.loss = self._robot_pose_and_leds_loss
+
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+                self.robot_pose_and_led_layer
+            )
+            self.MAX_DIST_M = 5.
