@@ -77,7 +77,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             loss = unsupervised_loss + supervised_loss
             loss.backward()
             optimizer.step()
-            breakpoint()
 
             losses.append(loss.detach().item())
             p_losses.append(summed_p_loss.detach().item())
