@@ -11,6 +11,7 @@ class BaseModel(torch.nn.Module):
         self.task = task
         self.checkpoint_file = checkpoint_file
         self.layers = None
+        self.epsilon = torch.tensor([1e-15])
     
     def loss(self, y_true, y_pred):
         raise NotImplementedError()
@@ -40,6 +41,10 @@ class BaseModel(torch.nn.Module):
     
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         return self.forward(*args, **kwds)
+    
+    def to(self, *args, **kwargs):
+        super().to(*args, **kwargs)
+        self.epsilon = self.epsilon.to(*args, **kwargs)
 
 
 model_registry = {}
