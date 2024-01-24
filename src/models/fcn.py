@@ -154,17 +154,16 @@ class Model_s(BaseModel):
 
     def __led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        # pos_preds = self.__pose_pred_norm_cache.detach()
-        pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-        pos_trues = torch.nn.MaxPool2d(8, 8, 0)(pos_trues)
+        pos_preds = self.__pose_pred_norm_cache.detach()
+        # pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+        # pos_trues = torch.nn.MaxPool2d(8, 8, 0)(pos_trues)
 
-        pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
+        # pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
-        masked_led_outs = led_outs * pos_trues
+        masked_led_outs = led_outs * pos_preds
         led_preds = masked_led_outs.sum(axis=[-1, -2])
-        # losses = [0] * 6
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
         # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
         for i in range(led_preds.shape[1]):
@@ -172,7 +171,6 @@ class Model_s(BaseModel):
                     led_preds[:, i].float(), led_trues[:, i].float(), reduction='none')
             # losses[i] = losses[i] * led_visibility_mask[:, i]
             # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
-        # losses = torch.stack(losses, dim = 1)
         return losses, losses.mean(0)
 
     
@@ -185,16 +183,10 @@ class Model_s(BaseModel):
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
-        
         led_loss = led_loss.mean(-1) * unsupervised_label
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
         ori_loss_norm = (orientation_loss / 4) * supervised_label
-        
-        # loss = weights['pos'] * proj_loss_norm.sum() \
-        #     + weights['dist'] * dist_loss_norm.sum()\
-        #     + weights['ori'] * ori_loss_norm.sum() \
-        #     + weights['led'] *  led_loss.sum()
         
         return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
             led_loss, led_losses
