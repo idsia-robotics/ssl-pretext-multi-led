@@ -186,7 +186,6 @@ class Model_s(BaseModel):
         led_loss = led_loss.mean(-1) * unsupervised_label
         # Testing if zeroing out all but one losses leads
         # to a model capable of classifying that led.
-        led_loss[:, :-1] = 0
 
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
