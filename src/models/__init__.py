@@ -43,8 +43,9 @@ class BaseModel(torch.nn.Module):
         return self.forward(*args, **kwds)
     
     def to(self, *args, **kwargs):
-        super().to(*args, **kwargs)
         self.epsilon = self.epsilon.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
 
 
 model_registry = {}
