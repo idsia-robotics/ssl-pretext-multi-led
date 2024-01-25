@@ -183,8 +183,7 @@ class Model_s(BaseModel):
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
-        led_loss[:, :-1] = 0
-        led_loss = led_loss.sum(-1) * unsupervised_label
+        led_loss = led_loss.mean(-1) * unsupervised_label
 
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
