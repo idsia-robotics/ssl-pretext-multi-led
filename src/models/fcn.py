@@ -23,6 +23,7 @@ class RangeRescaler(torch.nn.Module):
         return (x - self.in_min) * self.gap_ratio + self.out_min
         
 
+    
 @ModelRegistry("model_s")
 class Model_s(BaseModel):
     def __init__(self, *args, **kwargs):
@@ -102,7 +103,7 @@ class Model_s(BaseModel):
                 torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
                 # torch.nn.Sigmoid()
             )
-            self.forward = self._pose_and_leds_forward
+            self.forward = self.pose_and_leds_forward
             self.loss = self._robot_pose_and_leds_loss
 
             self.layers = torch.nn.Sequential(
@@ -170,7 +171,7 @@ class Model_s(BaseModel):
                     led_preds[:, i].float(), led_trues[:, i].float(), reduction='none')
             # losses[i] = losses[i] * led_visibility_mask[:, i]
             # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
-        return losses, losses.mean(0)
+        return losses, losses.detach().mean(0)
 
     
     def _robot_pose_and_leds_loss(self, batch, model_out):
@@ -182,7 +183,7 @@ class Model_s(BaseModel):
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
-        led_loss = led_loss.mean(-1) * unsupervised_label
+        led_loss = led_loss.sum(-1) * unsupervised_label
 
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
@@ -192,7 +193,7 @@ class Model_s(BaseModel):
             led_loss, led_losses
 
 
-    def _pose_and_leds_forward(self, x):
+    def pose_and_leds_forward(self, x):
         out = self.layers(x)
         out = torch.cat(
             [
