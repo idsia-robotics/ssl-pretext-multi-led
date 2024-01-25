@@ -171,7 +171,7 @@ class Model_s(BaseModel):
                     led_preds[:, i].float(), led_trues[:, i].float(), reduction='none')
             # losses[i] = losses[i] * led_visibility_mask[:, i]
             # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
-        return losses, losses.mean(0)
+        return losses, losses.detach().mean(0)
 
     
     def _robot_pose_and_leds_loss(self, batch, model_out):
@@ -183,8 +183,8 @@ class Model_s(BaseModel):
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
-        led_loss[:, :-3] = 0
-        led_loss = led_loss.sum(-1) / 3 * unsupervised_label
+        led_loss[:, :-1] = 0
+        led_loss = led_loss.sum(-1) * unsupervised_label
 
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
