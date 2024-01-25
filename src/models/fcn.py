@@ -103,7 +103,7 @@ class Model_s(BaseModel):
                 torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
                 # torch.nn.Sigmoid()
             )
-            self.forward = self._pose_and_leds_forward
+            self.forward = self.pose_and_leds_forward
             self.loss = self._robot_pose_and_leds_loss
 
             self.layers = torch.nn.Sequential(
@@ -194,7 +194,7 @@ class Model_s(BaseModel):
             led_loss, led_losses
 
 
-    def _pose_and_leds_forward(self, x):
+    def pose_and_leds_forward(self, x):
         out = self.layers(x)
         out = torch.cat(
             [
@@ -360,7 +360,7 @@ class Model_s_optimized(Model_s):
                 torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
                 # torch.nn.Sigmoid()
             )
-            self.forward = self._pose_and_leds_forward
+            self.forward = self.pose_and_leds_forward
             self.loss = self._robot_pose_and_leds_loss
 
             self.layers = torch.nn.Sequential(
@@ -368,3 +368,81 @@ class Model_s_optimized(Model_s):
                 self.robot_pose_and_led_layer
             )
             self.MAX_DIST_M = 5.
+
+class ConvBlock(torch.nn.Module):
+    
+    def __init__(self, in_channels, out_channels) -> None:
+        super().__init__()
+        self.layers = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(in_channels),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(in_channels),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0, stride=1, bias = False),
+            torch.nn.BatchNorm2d(out_channels),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+        
+
+@ModelRegistry("deep_model_s")
+class Deep_Model_s(Model_s):
+    def __init__(self, *args, **kwargs):
+        super(Deep_Model_s, self).__init__(*args, **kwargs)
+
+        self.core_layers = torch.nn.Sequential(
+            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(6),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(8),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(16),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=6, stride=1, dilation = 3, bias = False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 32, kernel_size=5, padding=4, stride=1, dilation=2, bias = False),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1, bias=False),
+            torch.nn.BatchNorm2d(10),
+            torch.nn.ReLU(),
+            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
+
+        )
+
+        if self.task == 'pose_and_led':
+            self.deep_robot_pose_and_led_layer = [ConvBlock(10, 1) for _ in range(10)]
+            self.forward = lambda x: Deep_Model_s.forward(self, x)
+
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+            )
+            self.MAX_DIST_M = 5.
+        
+    def forward(self, x):
+        core_out = self.core_layers(x)
+        result = torch.cat(
+            [b(core_out) for b in self.deep_robot_pose_and_led_layer],
+            dim = 1
+        )
+        out = torch.cat(
+            [
+                torch.nn.functional.sigmoid(result[:, :2, ...]), # pos and dist
+                torch.nn.functional.tanh(result[:, 2:4, ...]), # orientation
+                torch.nn.functional.sigmoid(result[:, 4:, ...]), # leds
+                
+            ],
+            axis = 1)
+        return out
