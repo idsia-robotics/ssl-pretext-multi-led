@@ -76,6 +76,7 @@ def ModelRegistry(name):
 
 import src.models.fcn
 import src.models.multi_scale_fcn
+import src.models.mobile_net
 
 def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task, return_run_id = False):
     runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")

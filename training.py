@@ -55,11 +55,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             image = batch['image'].to(device)
             
             out = model.forward(image)
-            pos_preds = model.predict_pos_from_outs(image, out)
-            preds.extend(pos_preds)
-            trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
-            dist_trues.extend(batch["distance_rel"])
-            theta_trues.extend(batch["pose_rel"][:, -1])
 
 
             p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
@@ -86,6 +81,11 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             multiple_led_losses.append([l.item() for l in m_led_loss])
 
             with torch.no_grad():
+                pos_preds = model.predict_pos_from_outs(image, out)
+                preds.extend(pos_preds)
+                trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
+                dist_trues.extend(batch["distance_rel"])
+                theta_trues.extend(batch["pose_rel"][:, -1])
                 dpreds = model.predict_dist_from_outs(out)
                 tpreds=  model.predict_orientation_from_outs(out)
                 theta_preds.extend(tpreds)
@@ -201,7 +201,7 @@ def main():
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 24, num_workers=8)
 
     """
     Validation data
@@ -227,6 +227,8 @@ def main():
     supervised_count = args.labeled_count if args.labeled_count else ds_size
     if 'cuda' in args.device:
         torch.backends.cudnn.benchmark = True
+        torch.set_default_device(args.device)
+
 
     with mlflow.start_run(experiment_id=args.experiment_id, run_name=args.run_name) as run:
         mlflow.log_params(vars(args))
