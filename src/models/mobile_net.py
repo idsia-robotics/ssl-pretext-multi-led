@@ -13,7 +13,7 @@ class NN_ci(BaseModel, MobileNetV2, FullyConvPredictorMixin, FullyConvLossesMixi
             # t, c, n, s
             [1, 24, 1, 1],
             [6, 52, 2, 2],
-            [6, 96, 3, 2],
+            [6, 86, 3, 2],
             # [6, 128, 2, 2],
             # [6, 256, 1, 1],
         ]
