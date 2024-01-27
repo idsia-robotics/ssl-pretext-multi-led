@@ -11,9 +11,9 @@ class NN_ci(BaseModel, MobileNetV2, FullyConvPredictorMixin, FullyConvLossesMixi
     def __init__(self, *args, **kwargs):
         settings = [
             # t, c, n, s
-            [1, 16 * 2, 1, 1],
-            [6, 32 * 2, 2, 2],
-            [6, 64 * 2, 3, 2],
+            [1, 24, 1, 1],
+            [6, 52, 2, 2],
+            [6, 96, 3, 2],
             # [6, 128, 2, 2],
             # [6, 256, 1, 1],
         ]
@@ -33,6 +33,8 @@ class NN_ci(BaseModel, MobileNetV2, FullyConvPredictorMixin, FullyConvLossesMixi
                                                 list(self.features.children())[-1][1])
         self.features = self.new_features
         self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=1, padding=0, stride=1)
+        # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
+
         self.MAX_DIST_M = 5.
         self.loss = self._robot_pose_and_leds_loss
 
