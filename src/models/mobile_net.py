@@ -31,6 +31,9 @@ class NN_ci(BaseModel, MobileNetV2, FullyConvPredictorMixin, FullyConvLossesMixi
         self.new_features = torch.nn.Sequential(self.new_features,
                                                 list(self.features.children())[-1][0],
                                                 list(self.features.children())[-1][1])
+        del self.classifier
+        del list(self.features.children())[-1][2]
+
         self.features = self.new_features
         self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=1, padding=0, stride=1)
         # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
