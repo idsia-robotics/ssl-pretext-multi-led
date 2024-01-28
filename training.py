@@ -166,7 +166,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                     theta_trues.extend(batch["pose_rel"][:, -1])
                     theta_preds.extend(model.predict_orientation_from_outs(out))
                     led_preds.extend(model.predict_leds_from_outs(out))
-                    led_trues.extend(batch["led_mask"])
+                    led_trues.extend(batch["led_visibility_mask"])
 
             
             errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
@@ -197,17 +197,17 @@ def main():
     model_cls = get_model(args.model_type)
     model = model_cls(task = args.task).to(args.device)
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
-                                only_visible_robots=args.visible, compute_led_visibility=False,
+                                only_visible_robots=args.visible, compute_led_visibility=True,
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 24, num_workers=8)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
     """
     Validation data
     """
     if args.validation_dataset:
-        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=True, compute_led_visibility=False)
+        validation_dataset = get_dataset(args.validation_dataset, augmentations=False, only_visible_robots=True, compute_led_visibility=True)
         validation_dataloader = torch.utils.data.DataLoader(validation_dataset, batch_size = 64, num_workers=8)
     else:
         validation_dataloader = None
@@ -227,7 +227,6 @@ def main():
     supervised_count = args.labeled_count if args.labeled_count else ds_size
     if 'cuda' in args.device:
         torch.backends.cudnn.benchmark = True
-        torch.set_default_device(args.device)
 
 
     with mlflow.start_run(experiment_id=args.experiment_id, run_name=args.run_name) as run:

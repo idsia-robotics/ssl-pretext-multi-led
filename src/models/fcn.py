@@ -72,8 +72,8 @@ class FullyConvPredictorMixin:
             return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
 
     def predict_leds_from_outs(self, outs, batch):
-        pos_map = outs[:, :1, ...]
-        # pos_map = torch.nn.functional.max_pool2d(batch["pos_map"], (8,8))[:, None, ...]
+        # pos_map = outs[:, :1, ...]
+        pos_map = torch.nn.functional.max_pool2d(batch["pos_map"], (8,8))[:, None, ...]
         led_maps = outs[:, 4:, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
@@ -141,7 +141,7 @@ class FullyConvLossesMixin:
 
         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
-        led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
+        led_trues = batch["led_visibility_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
         masked_led_outs = led_outs * pos_trues
         led_preds = masked_led_outs.sum(axis=[-1, -2])
