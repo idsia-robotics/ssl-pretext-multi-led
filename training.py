@@ -84,8 +84,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                 pos_preds = model.predict_pos_from_outs(image, out)
                 preds.extend(pos_preds)
                 trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
-                dist_trues.extend(batch["distance_rel"])
-                theta_trues.extend(batch["pose_rel"][:, -1])
+                dist_trues.extend(batch["distance_rel"].cpu().numpy())
+                theta_trues.extend(batch["pose_rel"][:, -1].cpu().numpy())
                 dpreds = model.predict_dist_from_outs(out)
                 tpreds=  model.predict_orientation_from_outs(out)
                 theta_preds.extend(tpreds)
@@ -166,7 +166,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                     theta_trues.extend(batch["pose_rel"][:, -1])
                     theta_preds.extend(model.predict_orientation_from_outs(out))
                     led_preds.extend(model.predict_leds_from_outs(out))
-                    led_trues.extend(batch["led_visibility_mask"])
+                    led_trues.extend(batch["led_mask"])
 
             
             errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)

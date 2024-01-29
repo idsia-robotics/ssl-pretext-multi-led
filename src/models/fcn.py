@@ -141,7 +141,7 @@ class FullyConvLossesMixin:
 
         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
-        led_trues = batch["led_visibility_mask"].to(led_outs.device) # BATCH_SIZE x 6
+        led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
         masked_led_outs = led_outs * pos_trues
         led_preds = masked_led_outs.sum(axis=[-1, -2])
