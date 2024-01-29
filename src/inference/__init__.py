@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import cv2
 
 def make_homogeneous_mat(m):
     res = np.eye(4)
