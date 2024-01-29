@@ -3,15 +3,15 @@ import h5py
 import torch
 import numpy as np
 import torchvision
-from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation
+from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, GrayScaleAugmentation
 
 
 class H5Dataset(torch.utils.data.Dataset):
     LED_TYPES = ["bb", "bl", "br", "bf", "tl", "tr"]
     LED_VISIBILITY_RANGES_DEG = [
         [[-180, -100], [100, 180]],
-        [[55, 125], [np.inf, np.inf]],
-        [[-125, -45], [np.inf, np.inf]],
+        [[35, 145], [np.inf, np.inf]],
+        [[-145, -35], [np.inf, np.inf]],
         [[-80, 80], [np.inf, np.inf]],
         [[0, 180], [np.inf, np.inf]],
         [[-180, -0], [np.inf, np.inf]],
@@ -243,13 +243,13 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-            RandomHorizontalFlip((360, 640)),
+            # RandomHorizontalFlip((360, 640)),
             RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
             SimplexNoiseTransform((360, 640)),
-#            ColorJitterAugmentation(
-#                brightness=.4,
-#                hue=.2
-#            )
+            ColorJitterAugmentation(
+               brightness=.4,
+               hue=.2
+           )
         ])
 
     camera_robot_id_int = None
