@@ -74,7 +74,7 @@ class FullyConvPredictorMixin:
 
     def predict_leds_from_outs(self, outs, batch):
         # pos_map = outs[:, :1, ...]
-        pos_map = resize(batch["pos_map"], outs.shape[-2:], antialias=False)[:, None, ...]
+        pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
         led_maps = outs[:, 4:, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
