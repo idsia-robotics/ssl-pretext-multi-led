@@ -1,5 +1,6 @@
 import matplotlib.patches as patches
 import numpy as np
+import torch
 from src.dataset.dataset import H5Dataset
 
 class RobotOrientationWidget:
@@ -30,14 +31,23 @@ class ImageWidget:
         if receptive_field:
             self.rf_plot = patches.Rectangle((0, 0), receptive_field, receptive_field, linewidth=1, edgecolor = 'blue', facecolor = 'none')   
             self.axis.add_patch(self.rf_plot)
+
+        # self.x_axis_scatters = [self.axis.scatter(0, 0, s = 10, facecolor='red') for _ in range(100)]
     
     def update(self, data):
         self.plot_obj.set_data(data['image'].squeeze().cpu().numpy().transpose(1, 2, 0))
         self.gt_pos_scatter.set_offsets(data['proj_uvz'][:2])
+        if data['proj_uvz'][:, -1] < 0:
+            self.gt_pos_scatter.set_offsets([-1000, -1000])
+        self.axis.set_title(data["timestamp"].item())
+
+        # print(data['proj_x'].shape)
+        
+        # for i, p in enumerate(self.x_axis_scatters):
+        #     p.set_offsets(data['proj_x'][0, i, :-1])
 
         if self.receptive_field:
             self.rf_plot.set_xy((data['proj_uvz'][0][:2] - self.receptive_field / 2))
-
 
 
 class LedStatusWidget:
@@ -72,12 +82,17 @@ class LedStatusWidget:
                               labelleft = False, labelbottom = False) 
 
     def update(self, data):
-        self.led_front.set(facecolor = self.get_led_indicator_color(data["led_bf"]))
-        self.led_right.set(facecolor = self.get_led_indicator_color(data["led_br"]))
-        self.led_back.set(facecolor = self.get_led_indicator_color(data["led_bb"]))
-        self.led_left.set(facecolor = self.get_led_indicator_color(data["led_bl"]))
-        self.led_top_left.set(facecolor = self.get_led_indicator_color(data["led_tl"]))
-        self.led_top_right.set(facecolor = self.get_led_indicator_color(data["led_tr"]))
+        # print(H5Dataset.LED_TYPES)
+        # print(data["led_visibility_mask"])
+        # print("=" * 50)
+        led_bb,led_bl,led_br,led_bf,led_tl,led_tr = data["led_mask"].squeeze()
+
+        self.led_front.set(facecolor = self.get_led_indicator_color(led_bf))
+        self.led_right.set(facecolor = self.get_led_indicator_color(led_br))
+        self.led_back.set(facecolor = self.get_led_indicator_color(led_bb))
+        self.led_left.set(facecolor = self.get_led_indicator_color(led_bl))
+        self.led_top_left.set(facecolor = self.get_led_indicator_color(led_tl))
+        self.led_top_right.set(facecolor = self.get_led_indicator_color(led_tr))
     
     def get_led_indicator_color(self, led_status):
         return 'green' if led_status else 'white'
