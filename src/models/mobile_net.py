@@ -97,7 +97,7 @@ class MobileNetV2(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
         self.loss = self._robot_pose_and_leds_loss
         self.avg_pool2d = nn.AvgPool2d(2)
         # self.upscaler = nn.ConvTranspose2d(10, 10, 4)
-        self.upscaler = nn.UpsamplingBilinear2d(scale_factor=2)
+        # self.upscaler = nn.UpsamplingBilinear2d(scale_factor=2)
 
     def forward(self, x):
         x = self.avg_pool2d(x)
@@ -105,7 +105,7 @@ class MobileNetV2(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
         x = self.layers(x)
         x = self.last_conv(x)
         # x = self.last_layer(x)
-        x = self.upscaler(x)
+        # x = self.upscaler(x)
         return self.pose_and_leds_non_lin(x)
 
     def pose_and_leds_non_lin(self, x):

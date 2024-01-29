@@ -2,9 +2,10 @@ from typing import Any, Tuple
 import torch
 from src.models import BaseModel, ModelRegistry
 from torch.nn.functional import binary_cross_entropy as bce
-from torchvision.transforms.functional import resize
+from torchvision.transforms.functional import resize, InterpolationMode
 from numpy import unravel_index, stack
 import numpy as np
+
 
 class RangeRescaler(torch.nn.Module):
 
@@ -104,8 +105,8 @@ class FullyConvLossesMixin:
 
     def _robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
-        pos_true = torch.nn.MaxPool2d(8, 8, 0)(pos_true)
-
+        pos_true = resize(pos_true, model_out.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = True)
+        
         pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
         pos_pred_norm = model_out / pos_pred_sum
         self.__pose_pred_norm_cache = pos_pred_norm.detach()
@@ -137,7 +138,7 @@ class FullyConvLossesMixin:
         led_outs = model_out[:, 4:, ...]
         # pos_preds = self.__pose_pred_norm_cache.detach()
         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-        pos_trues = torch.nn.MaxPool2d(8, 8, 0)(pos_trues)
+        pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = True)
 
         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
