@@ -74,7 +74,7 @@ class FullyConvPredictorMixin:
 
     def predict_leds_from_outs(self, outs, batch):
         # pos_map = outs[:, :1, ...]
-        pos_map = torch.nn.functional.max_pool2d(batch["pos_map"], (8,8))[:, None, ...]
+        pos_map = resize(batch["pos_map"], outs.shape[-2:], antialias=False)[:, None, ...]
         led_maps = outs[:, 4:, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
@@ -105,7 +105,7 @@ class FullyConvLossesMixin:
 
     def _robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
-        pos_true = resize(pos_true, model_out.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = True)
+        pos_true = resize(pos_true, model_out.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = False)
         
         pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
         pos_pred_norm = model_out / pos_pred_sum
@@ -138,7 +138,7 @@ class FullyConvLossesMixin:
         led_outs = model_out[:, 4:, ...]
         # pos_preds = self.__pose_pred_norm_cache.detach()
         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-        pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = True)
+        pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = False)
 
         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
