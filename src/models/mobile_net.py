@@ -26,6 +26,14 @@ def conv1x1(ch_in, ch_out):
         )
     )
 
+def conv1x1_raw(ch_in, ch_out):
+    return (
+        nn.Sequential(
+            nn.Conv2d(ch_in, ch_out, kernel_size=1, padding=0, stride=1, bias=False),
+            nn.BatchNorm2d(ch_out),
+        )
+    )
+
 def conv3x3(ch_in, ch_out, stride):
     return (
         nn.Sequential(
@@ -88,7 +96,7 @@ class MobileNetV2(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
 
         self.layers = nn.Sequential(*layers)
 
-        self.last_conv = conv1x1(input_channel, 10)
+        self.last_conv = conv1x1_raw(input_channel, 10)
 
         # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=1, padding=0, stride=1)
         # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
