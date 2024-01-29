@@ -131,13 +131,7 @@ def main():
     for i, led_label in enumerate(H5Dataset.LED_TYPES):
         visible_mask = data["led_visibility_mask"][:, i]
         auc = binary_auc(data["led_pred"][visible_mask, i], data["led_true"][visible_mask, i])
-        # auc = binary_auc(data["led_pred"][:, i], data["led_visibility_mask"][:, i])
         print(f"AUC for led {led_label}: {auc}")
-    
-    ds_len = len(ds)
-    led_vis_frac = np.stack(data["led_visibility_mask"]).sum(axis = 0) / ds_len
-    ideal = led_vis_frac * .7 + (1 - led_vis_frac) * .5
-
 
     figures = [
         theta_scatter_plot,
