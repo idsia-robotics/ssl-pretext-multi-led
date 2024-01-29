@@ -5,12 +5,10 @@ import mlflow
 import numpy as np
 from src.config.argument_parser import parse_args
 from src.dataset.dataset import H5Dataset, get_dataset
-import torch
 from torch.utils.data import DataLoader
 import tqdm
 import pandas as pd
-from src.metrics import angle_difference, binary_auc, mse
-from datetime import datetime
+from src.metrics import angle_difference, binary_auc
 from src.models import load_model_mlflow, load_model_raw
 from src.viz.plots import orientation_error_distribution, plot_multi_add, theta_scatter_plot, proj_scatter_plot, proj_error_distribution, custom_scatter, orientation_error_by_orientation, distance_error_distribution, pose_add_jointplot
 from matplotlib import pyplot as plt
@@ -23,7 +21,7 @@ def main():
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
                      compute_led_visibility=True,
                      distance_range=args.dist_range)
-    dataloader = DataLoader(ds, batch_size = 64, shuffle = False)
+    dataloader = DataLoader(ds, batch_size = 128, shuffle = False)
 
     using_mlflow = False
 
@@ -60,7 +58,7 @@ def main():
         proj_pred = model.predict_pos_from_outs(image, outs)
         dist_pred = model.predict_dist_from_outs(outs)
         theta_pred, cos_pred, sin_pred = model.predict_orientation_from_outs(outs, return_cos_sin = True)
-        led_pred = model.predict_leds_from_outs(outs)
+        led_pred = model.predict_leds_from_outs(outs, batch)
         
         data['proj_pred'].extend(proj_pred)
         data['dist_pred'].extend(dist_pred)
@@ -133,7 +131,13 @@ def main():
     for i, led_label in enumerate(H5Dataset.LED_TYPES):
         visible_mask = data["led_visibility_mask"][:, i]
         auc = binary_auc(data["led_pred"][visible_mask, i], data["led_true"][visible_mask, i])
+        # auc = binary_auc(data["led_pred"][:, i], data["led_visibility_mask"][:, i])
         print(f"AUC for led {led_label}: {auc}")
+    
+    ds_len = len(ds)
+    led_vis_frac = np.stack(data["led_visibility_mask"]).sum(axis = 0) / ds_len
+    ideal = led_vis_frac * .7 + (1 - led_vis_frac) * .5
+
 
     figures = [
         theta_scatter_plot,
