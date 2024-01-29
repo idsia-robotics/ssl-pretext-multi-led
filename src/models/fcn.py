@@ -105,7 +105,7 @@ class FullyConvLossesMixin:
 
     def _robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
-        pos_true = resize(pos_true, model_out.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = False)
+        pos_true = resize(pos_true, model_out.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
         
         pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
         pos_pred_norm = model_out / pos_pred_sum
@@ -138,7 +138,7 @@ class FullyConvLossesMixin:
         led_outs = model_out[:, 4:, ...]
         # pos_preds = self.__pose_pred_norm_cache.detach()
         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-        pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.BILINEAR, antialias = False)
+        pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
 
         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
@@ -165,7 +165,7 @@ class FullyConvLossesMixin:
         supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
-        led_loss = led_loss.sum(-1) * unsupervised_label
+        led_loss = led_loss.mean(-1) * unsupervised_label
 
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
