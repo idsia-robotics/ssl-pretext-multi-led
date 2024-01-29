@@ -1,7 +1,7 @@
 from functools import reduce
 from typing import Any
 import torch
-from torchvision.transforms.v2 import ColorJitter, functional as F, InterpolationMode
+from torchvision.transforms.v2 import ColorJitter, functional as F, InterpolationMode, Grayscale
 import math
 
 
@@ -156,3 +156,10 @@ class ColorJitterAugmentation(ColorJitter):
         batch['image'] = transformed_image
         return batch
     
+
+class GrayScaleAugmentation(Grayscale):
+
+    def __call__(self, batch) -> Any:
+        transformed_image=super().__call__(batch['image'])
+        batch['image'] = transformed_image
+        return batch
