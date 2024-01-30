@@ -83,7 +83,7 @@ class H5Dataset(torch.utils.data.Dataset):
 
         # Are we filtering out for visible robots only?
         
-        self.visibility_mask = np.zeros(len(self), dtype=np.int8)
+        self.visibility_mask = torch.zeros(len(self), dtype=torch.int8)
 
         bounds = np.array([
             [0, 640], # u
@@ -130,7 +130,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.__pos_map_orb = self.__pos_orb(self.POS_ORB_SIZE)
 
 
-        self.supervised_mask = np.ones_like(self.data["robot_id"], dtype=bool)
+        self.supervised_mask = torch.ones(self.data["robot_id"].shape, dtype=torch.bool)
 
         if supervised_flagging is not None:
             np.random.seed(supervised_flagging_seed)
@@ -157,16 +157,16 @@ class H5Dataset(torch.utils.data.Dataset):
     
         batch["led_mask"] = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.int8)
         for i, led_key in enumerate(self.led_keys[slice_robot_id]):
-            batch[led_key[4:]] = int(self.data[led_key][slice])
-            batch["led_mask"][i] = int(self.data[led_key][slice])
+            batch[led_key[4:]] = torch.tensor([self.data[led_key][slice]], dtype=torch.uint8)
+            batch["led_mask"][i] = torch.tensor([self.data[led_key][slice]], dtype=torch.uint8)
 
         for robot_id in self.robot_ids:
-            batch[robot_id + "_pose"] = self.data[robot_id + "_pose"][slice].squeeze()
+            batch[robot_id + "_pose"] = torch.tensor(self.data[robot_id + "_pose"][slice].squeeze())
 
         
         batch['image'] = torch.tensor((self.data["image"][slice].astype(np.float32) / 255.).transpose(2, 0, 1))
         
-        batch["timestamp"] = self.data["timestamp"][slice]
+        batch["timestamp"] = torch.tensor([self.data["timestamp"][slice]])
         # u_visible = (batch['proj_uvz'][0] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][0] < 640 + self.POS_ORB_SIZE // 2)
         # v_visible = (batch['proj_uvz'][1] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][1] < 360 + self.POS_ORB_SIZE // 2)
         # z_visible = (batch['proj_uvz'][2] > 0)
@@ -174,7 +174,7 @@ class H5Dataset(torch.utils.data.Dataset):
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
         # batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
         batch["distance_rel"] = batch["pose_rel"][0]
-        batch["robot_id"] = slice_robot_id
+        batch["robot_id"] = torch.tensor([slice_robot_id])
 
         batch["supervised_flag"] = self.supervised_mask[slice]
 
@@ -183,7 +183,7 @@ class H5Dataset(torch.utils.data.Dataset):
             other_theta_rel = np.arctan2(other_pose_rel[1], other_pose_rel[0])
             led_visibility = (other_theta_rel >= self.LED_VISIBILITY_RANGES_RAD[:, :, 0]) &\
                 (other_theta_rel <= self.LED_VISIBILITY_RANGES_RAD[:, :, 1])
-            batch["led_visibility_mask"] = led_visibility[:, 0] | led_visibility[:, 1]
+            batch["led_visibility_mask"] = torch.tensor((led_visibility[:, 0] | led_visibility[:, 1]).tolist())
     
         return self.transform(batch)
     

@@ -179,7 +179,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
             led_preds = np.array(led_preds)
             led_trues = np.array(led_trues)
-            
+
             led_auc, led_auc_scores = leds_auc(led_preds, led_trues)
             mlflow.log_metric('validation/led/auc', led_auc, e)
 
@@ -201,7 +201,7 @@ def main():
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=4, pin_memory=True)
 
     """
     Validation data
