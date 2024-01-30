@@ -201,7 +201,7 @@ def main():
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=4, pin_memory=True)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=4, pin_memory=True, pin_memory_device=args.device)
 
     """
     Validation data
