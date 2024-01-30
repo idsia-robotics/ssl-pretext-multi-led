@@ -115,7 +115,7 @@ class FullyConvLossesMixin:
     
     def _robot_distance_loss(self, batch, model_out):
         dist_out = model_out[:, 1:2, ...]
-        dist_gt = batch["distance_rel"].to(dist_out.device)
+        dist_gt = batch["distance_rel"].to(dist_out.device, non_blocking=True)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
         dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
         error = (dist_gt - dist_pred) ** 2
@@ -137,12 +137,12 @@ class FullyConvLossesMixin:
     def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
         # pos_preds = self.__pose_pred_norm_cache.detach()
-        pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+        pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device, non_blocking=True)
+        led_trues = batch["led_mask"].to(led_outs.device, non_blocking=True) # BATCH_SIZE x 6
         pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
 
         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
-        led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
 
         masked_led_outs = led_outs * pos_trues
         led_preds = masked_led_outs.sum(axis=[-1, -2])
@@ -157,12 +157,13 @@ class FullyConvLossesMixin:
 
     
     def _robot_pose_and_leds_loss(self, batch, model_out):
+        supervised_label = batch["supervised_flag"].to(model_out.device, non_blocking=True)
+
         proj_loss = self._robot_position_loss(batch, model_out[:, :1, ...])
         dist_loss = self._robot_distance_loss(batch, model_out)
         orientation_loss = self._robot_orientation_loss(batch, model_out)
         led_loss, led_losses = self._led_status_loss(batch, model_out)
 
-        supervised_label = batch["supervised_flag"].to(model_out.device)
         unsupervised_label = ~supervised_label
         
         led_loss = led_loss.mean(-1) * unsupervised_label
