@@ -72,15 +72,13 @@ class FullyConvPredictorMixin:
         else:
             return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
 
-    def predict_leds_from_outs(self, outs, batch):
-        # pos_map = outs[:, :1, ...]
-        pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
+    def predict_leds_from_outs(self, outs):
+        pos_map = outs[:, :1, ...]
+        # pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
         led_maps = outs[:, 4:, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
-        # breakpoint()
         return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
-        # return masked_maps.max(-1)[0].detach().cpu().numpy()
 
 
     def predict_orientation(self, image):
@@ -115,7 +113,7 @@ class FullyConvLossesMixin:
     
     def _robot_distance_loss(self, batch, model_out):
         dist_out = model_out[:, 1:2, ...]
-        dist_gt = batch["distance_rel"].to(dist_out.device, non_blocking=True)
+        dist_gt = batch["distance_rel"].to(dist_out.device)
         pos_out_norm = self.__pose_pred_norm_cache.detach()
         dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
         error = (dist_gt - dist_pred) ** 2
@@ -136,15 +134,15 @@ class FullyConvLossesMixin:
 
     def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        # pos_preds = self.__pose_pred_norm_cache.detach()
-        pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device, non_blocking=True)
-        led_trues = batch["led_mask"].to(led_outs.device, non_blocking=True) # BATCH_SIZE x 6
-        pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
+        pos_preds = self.__pose_pred_norm_cache.detach()
+        # pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+        # pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
 
-        pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
+        # pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
 
-        masked_led_outs = led_outs * pos_trues
+        masked_led_outs = led_outs * pos_preds
+        led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
         # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
@@ -157,7 +155,7 @@ class FullyConvLossesMixin:
 
     
     def _robot_pose_and_leds_loss(self, batch, model_out):
-        supervised_label = batch["supervised_flag"].to(model_out.device, non_blocking=True)
+        supervised_label = batch["supervised_flag"].to(model_out.device)
 
         proj_loss = self._robot_position_loss(batch, model_out[:, :1, ...])
         dist_loss = self._robot_distance_loss(batch, model_out)
