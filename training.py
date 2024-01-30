@@ -52,7 +52,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         for batch in train_dataloader:
             optimizer.zero_grad()
 
-            image = batch['image'].to(device, non_blocking = True)
+            image = batch['image'].to(device)
             
             out = model.forward(image)
 
@@ -208,8 +208,7 @@ def main():
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=4, pin_memory=True,
-                                                   pin_memory_device=args.device if 'cuda' in args.device else '')
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=8)
 
     """
     Validation data
