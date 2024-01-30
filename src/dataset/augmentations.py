@@ -25,7 +25,7 @@ class RandomHorizontalFlip():
             batch["led_tl"] = batch["led_tr"]
             batch["led_tr"] = swap
             
-            batch["led_mask"] = torch.stack(
+            batch["led_mask"] = torch.cat(
                 [
                     batch["led_bb"],
                     batch["led_bl"],
