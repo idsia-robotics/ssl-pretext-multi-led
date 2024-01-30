@@ -31,13 +31,17 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         milestones=[3,]
     )
 
+    _cuda_weights = {k: torch.tensor([v], device = device) for k, v in loss_weights.items()}
+    supervised_count = torch.tensor([supervised_count + 1e-15], device=device)
+    unsupervised_count = torch.tensor([unsupervised_count + 1e-15], device=device)
+
     for e in trange(epochs):
-        losses = []
-        p_losses = []
-        d_losses = []
-        o_losses = []
-        led_losses = []
-        multiple_led_losses = []
+        losses = [0] * len(train_dataloader)
+        p_losses = [0] * len(train_dataloader)
+        d_losses = [0] * len(train_dataloader)
+        o_losses = [0] * len(train_dataloader)
+        led_losses = [0] * len(train_dataloader)
+        multiple_led_losses = [[0] * 6, ] * len(train_dataloader)
 
 
         preds = []
@@ -49,13 +53,12 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         theta_trues = []
 
         model.train()
-        for batch in train_dataloader:
+        for batch_i, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
 
             image = batch['image'].to(device)
             
             out = model.forward(image)
-
 
             p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
             summed_p_loss = p_loss.sum()
@@ -64,39 +67,39 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             summed_l_loss = led_loss.sum()
 
             supervised_loss = (
-                    loss_weights['pos'] * summed_p_loss\
-                  + loss_weights['dist'] * summed_d_loss \
-                  + loss_weights['ori'] * summed_o_loss) / (supervised_count + 1e-15)
-            unsupervised_loss = (loss_weights['led'] * summed_l_loss) / (unsupervised_count + 1e-15)
+                    _cuda_weights['pos'] * summed_p_loss\
+                  + _cuda_weights['dist'] * summed_d_loss \
+                  + _cuda_weights['ori'] * summed_o_loss) / supervised_count
+            unsupervised_loss = (_cuda_weights['led'] * summed_l_loss) / unsupervised_count
             
             loss = unsupervised_loss + supervised_loss
             loss.backward()
             optimizer.step()
 
-            losses.append(loss.detach().item())
-            p_losses.append(summed_p_loss.detach().item())
-            d_losses.append(summed_d_loss.detach().item())
-            o_losses.append(summed_o_loss.detach().item())
-            led_losses.append(summed_l_loss.detach().item())
-            multiple_led_losses.append([l.item() for l in m_led_loss])
+            losses[batch_i] = loss.detach().item()
+            p_losses[batch_i] = summed_p_loss.detach().item()
+            d_losses[batch_i] = summed_d_loss.detach().item()
+            o_losses[batch_i] = summed_o_loss.detach().item()
+            led_losses[batch_i] = summed_l_loss.detach().item()
+            multiple_led_losses[batch_i] = [l.item() for l in m_led_loss]
 
-            with torch.no_grad():
-                pos_preds = model.predict_pos_from_outs(image, out)
-                preds.extend(pos_preds)
-                trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
-                dist_trues.extend(batch["distance_rel"].cpu().numpy())
-                theta_trues.extend(batch["pose_rel"][:, -1].cpu().numpy())
-                dpreds = model.predict_dist_from_outs(out)
-                tpreds=  model.predict_orientation_from_outs(out)
-                theta_preds.extend(tpreds)
-                dist_preds.extend(dpreds) 
+#            with torch.no_grad():
+#                pos_preds = model.predict_pos_from_outs(image, out)
+#                preds.extend(pos_preds)
+#                trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
+#                dist_trues.extend(batch["distance_rel"].cpu().numpy())
+#                theta_trues.extend(batch["pose_rel"][:, -1].cpu().numpy())
+#                dpreds = model.predict_dist_from_outs(out)
+#                tpreds=  model.predict_orientation_from_outs(out)
+#                theta_preds.extend(tpreds)
+#                dist_preds.extend(dpreds) 
 
-        errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
-        dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
+#        errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
+#        dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
         multiple_led_losses = np.stack(multiple_led_losses, axis = 0)
         
-        mlflow.log_metric('train/position/median_error', np.median(errors), e)
-        mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
+#        mlflow.log_metric('train/position/median_error', np.median(errors), e)
+#        mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
         mlflow.log_metric('train/loss', sum(losses), e)
         mlflow.log_metric('train/loss/proj', sum(p_losses) / (supervised_count + 1e-15), e)
         mlflow.log_metric('train/loss/ori', sum(o_losses) / (supervised_count + 1e-15), e)
@@ -107,6 +110,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         mlflow.log_metric('train/loss/coefficients/dist', loss_weights['dist'], e)
         mlflow.log_metric('train/loss/coefficients/ori', loss_weights['ori'], e)
         mlflow.log_metric('train/loss/coefficients/led', loss_weights['led'], e)
+
 
         for i, led_label, in enumerate(H5Dataset.LED_TYPES):
             mlflow.log_metric(f'train/loss/led/{led_label}', multiple_led_losses[:, i].mean(), e)
