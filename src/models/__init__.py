@@ -31,9 +31,10 @@ class BaseModel(torch.nn.Module):
         path)
 
     def log_checkpoint(self, checkpoint_id, **kwargs):
-        path = f"/tmp/checkpoint_{checkpoint_id}.tar"
-        self.save_checkpoint(path, **kwargs)
+        path = Path(f"/tmp/checkpoint_{checkpoint_id}.tar")
+        self.save_checkpoint(str(path), **kwargs)
         log_artifact(path)
+        path.unlink()
 
     def load_from_checkpoint(self, data):
         self.load_state_dict(data["model_state_dict"])
