@@ -132,6 +132,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             theta_trues = []
             led_preds = []
             led_trues = []
+            led_visibility = []
 
             model.eval()
 
@@ -165,8 +166,9 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
                     theta_trues.extend(batch["pose_rel"][:, -1])
                     theta_preds.extend(model.predict_orientation_from_outs(out))
-                    led_preds.extend(model.predict_leds_from_outs(out))
+                    led_preds.extend(model.predict_leds_from_outs(out, batch))
                     led_trues.extend(batch["led_mask"])
+                    led_visibility.extend(batch["led_visibility_mask"])
 
             
             errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
@@ -179,12 +181,17 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
             led_preds = np.array(led_preds)
             led_trues = np.array(led_trues)
+            led_visibility = np.array(led_visibility)
 
-            led_auc, led_auc_scores = leds_auc(led_preds, led_trues)
-            mlflow.log_metric('validation/led/auc', led_auc, e)
-
+            
+            aucs = []
             for i, led_label in enumerate(H5Dataset.LED_TYPES):
-                mlflow.log_metric(f'validation/led/auc/{led_label}', led_auc_scores[i], e)
+                vis = led_visibility[:, i]
+                auc = binary_auc(led_preds[vis, i], led_trues[vis, i])
+                mlflow.log_metric(f'validation/led/auc/{led_label}', auc, e)
+                aucs.append(auc)
+            mlflow.log_metric('validation/led/auc', mean(aucs), e)
+
 
 
             # auc = binary_auc(preds, trues)
@@ -201,7 +208,8 @@ def main():
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=4, pin_memory=True, pin_memory_device=args.device)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = 64, num_workers=4, pin_memory=True,
+                                                   pin_memory_device=args.device if 'cuda' in args.device else '')
 
     """
     Validation data
