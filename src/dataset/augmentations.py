@@ -22,27 +22,29 @@ class RandomHorizontalFlip():
             batch["led_br"] = swap
 
             swap = batch["led_tl"]
-            
             batch["led_tl"] = batch["led_tr"]
             batch["led_tr"] = swap
             
-            swap = batch["led_mask"][1] 
-            batch["led_mask"][1] = batch["led_mask"][2]
-            batch["led_mask"][2] = swap
-
-            swap = batch["led_mask"][-2] 
-            batch["led_mask"][-2] = batch["led_mask"][-1]
-            batch["led_mask"][-1] = swap
+            batch["led_mask"] = torch.stack(
+                [
+                    batch["led_bb"],
+                    batch["led_bl"],
+                    batch["led_br"],
+                    batch["led_bf"],
+                    batch["led_tl"],
+                    batch["led_tr"]
+                ]
+            )
 
             if 'led_visibility_mask' in batch:
-                swap = batch["led_visibility_mask"][1] 
-                batch["led_visibility_mask"][1] = batch["led_visibility_mask"][2]
+                swap = batch["led_visibility_mask"][1].item()
+                batch["led_visibility_mask"][1] = batch["led_visibility_mask"][2].item()
                 batch["led_visibility_mask"][2] = swap
 
-                swap = batch["led_visibility_mask"][-2] 
-                batch["led_visibility_mask"][-2] = batch["led_visibility_mask"][-1]
+                swap = batch["led_visibility_mask"][-2].item()
+                batch["led_visibility_mask"][-2] = batch["led_visibility_mask"][-1].item()
                 batch["led_visibility_mask"][-1] = swap
-
+            
         return batch
     
 
