@@ -52,7 +52,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
         for batch in train_dataloader:
             optimizer.zero_grad()
 
-            image = batch['image'].to(device)
+            image = batch['image'].to(device, non_blocking = True)
             
             out = model.forward(image)
 
