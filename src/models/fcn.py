@@ -134,14 +134,14 @@ class FullyConvLossesMixin:
 
     def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        pos_preds = self.__pose_pred_norm_cache.detach()
-        # pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-        # pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
+#        pos_preds = self.__pose_pred_norm_cache.detach()
+         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+         pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
 
-        # pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
+         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
 
-        masked_led_outs = led_outs * pos_preds
+        masked_led_outs = led_outs * pos_trues
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
