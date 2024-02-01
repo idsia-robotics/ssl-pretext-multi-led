@@ -27,6 +27,10 @@ class RangeRescaler(torch.nn.Module):
     
 class FullyConvPredictorMixin:
 
+    def __init__(self, led_inference) -> None:
+        self.led_inference = led_inference
+
+
     def predict_pos_from_outs(self, image, outs):
         outs = outs[:, :1, ...]
         out_map_shape = outs.shape[-2:]
@@ -73,22 +77,24 @@ class FullyConvPredictorMixin:
             return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
 
     def predict_leds_from_outs(self, outs, batch):
-        # pos_map = outs[:, :1, ...]
-        # pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
+        if self.led_inference == 'gt':
+            pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
+        elif self.led_inference == 'pred':
+            pos_map = outs[:, :1, ...]
         led_maps = outs[:, 4:, ...]
-        return torch.amax(led_maps, dim = (-1, -2)).detach().cpu().numpy()
-        # pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
-        # masked_maps = pos_map_norm * led_maps
-        # return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+        # return torch.amax(led_maps, dim = (-1, -2)).detach().cpu().numpy()
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        masked_maps = pos_map_norm * led_maps
+        return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
 
 
     def predict_orientation(self, image):
         outs = self(image)
         return self.predict_orientation_from_outs(outs)
     
-    def predict_leds(self, image):
-        outs = self(image)
-        return self.predict_leds_from_outs(outs)
+    # def predict_leds(self, image):
+    #     outs = self(image)
+    #     return self.predict_leds_from_outs(outs)
     
     def predict_leds_with_gt_pos(self, batch, image):
         outs = self(image)
@@ -101,6 +107,9 @@ class FullyConvPredictorMixin:
 
 
 class FullyConvLossesMixin:
+
+    def __init__(self, led_inference) -> None:
+        self.led_inference = led_inference
 
     def _robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
         pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
@@ -135,21 +144,22 @@ class FullyConvLossesMixin:
 
     def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-#        pos_preds = self.__pose_pred_norm_cache.detach()
-        # pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-        # pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
+        breakpoint()
+        if self.led_inference == 'gt':
+            pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+            pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
+            pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
+            masked_led_outs = led_outs * pos_trues
+        elif self.led_inference == 'pred':
+            pos_preds = self.__pose_pred_norm_cache.detach()
+            masked_led_outs = led_outs * pos_preds
 
-        # pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
-
-
-        # masked_led_outs = led_outs * pos_trues
-        # led_preds = masked_led_outs.sum(axis=[-1, -2])
+        led_preds = masked_led_outs.sum(axis=[-1, -2])
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
-        led_preds = torch.amax(led_outs, (-1, -2))
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
         for i in range(led_preds.shape[1]):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
+                    led_preds[:, i], led_trues[:, i].double(), reduction='none')
         return losses, losses.detach().mean(0)
 
     
@@ -177,6 +187,7 @@ class FullyConvLossesMixin:
 @ModelRegistry("model_s")
 class Model_s(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
     def __init__(self, *args, **kwargs):
+        self.led_inference = kwargs.pop('led_inference')
         super(Model_s, self).__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(

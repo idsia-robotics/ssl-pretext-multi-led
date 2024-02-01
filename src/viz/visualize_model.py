@@ -28,7 +28,8 @@ def main():
     args = parse_args('vis', 'inference')
     ds = get_dataset(args.dataset, camera_robot=args.robot_id, target_robots=[args.target_robot_id],
                      augmentations=args.augmentations, only_visible_robots=args.visible,
-                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed)
+                     sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
+                     distance_range=args.dist_range)
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
     
@@ -59,9 +60,9 @@ def main():
 
     if args.checkpoint_id:
         model = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_task=args.task)
+                        model_kwargs={'task' : args.task, 'led_inference' : args.led_inference})
     else:
-        model = load_model_raw(args.checkpoint_path, model_task=args.task)
+        model = load_model_raw(args.checkpoint_path, model_kwargs={'task' : args.task, 'led_inference' : args.led_inference})
 
     model.eval()
 

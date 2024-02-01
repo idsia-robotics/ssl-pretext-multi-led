@@ -1,3 +1,4 @@
+import torch
 from matplotlib import pyplot as plt
 from src.dataset.dataset import get_dataset
 from src.config.argument_parser import parse_args
@@ -30,9 +31,14 @@ def main():
                      augmentations=args.augmentations, only_visible_robots=args.visible,
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
                      compute_led_visibility=True)
+    if args.range is not None:
+        start = args.range[0]
+        end = args.range[1] if len(args.range) > 1 else len(ds)
+        ds = torch.utils.data.Subset(
+            ds, torch.arange(start, end))
     dataloader = DataLoader(ds, batch_size = 1, shuffle = False)
 
-    
+
     fig = plt.figure(figsize=(1920 / 150, 1080 / 150), dpi=150)
     axs = [plt.subplot(330 + i + 1) for i in range(9)]
     
@@ -41,11 +47,13 @@ def main():
 
     fig.tight_layout()
 
+    model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}
+
     if args.checkpoint_id:
         model = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_task=args.task)
+                        model_kwargs=model_kwargs)
     else:
-        model = load_model_raw(args.checkpoint_path, model_task=args.task)
+        model = load_model_raw(args.checkpoint_path, model_kwargs=model_kwargs)
 
     model.eval()
 
