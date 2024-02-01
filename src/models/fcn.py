@@ -72,13 +72,14 @@ class FullyConvPredictorMixin:
         else:
             return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
 
-    def predict_leds_from_outs(self, outs):
-        pos_map = outs[:, :1, ...]
+    def predict_leds_from_outs(self, outs, batch):
+        # pos_map = outs[:, :1, ...]
         # pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
         led_maps = outs[:, 4:, ...]
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
-        masked_maps = pos_map_norm * led_maps
-        return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+        return torch.amax(led_maps, dim = (-1, -2))
+        # pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        # masked_maps = pos_map_norm * led_maps
+        # return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
 
 
     def predict_orientation(self, image):
@@ -135,22 +136,20 @@ class FullyConvLossesMixin:
     def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
 #        pos_preds = self.__pose_pred_norm_cache.detach()
-         pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-         pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
+        # pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
+        # pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
 
-         pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
+        # pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
 
 
-        masked_led_outs = led_outs * pos_trues
+        # masked_led_outs = led_outs * pos_trues
+        # led_preds = masked_led_outs.sum(axis=[-1, -2])
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
-        led_preds = masked_led_outs.sum(axis=[-1, -2])
+        led_preds = torch.amax(led_outs, (-1, -2))
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
-        # led_visibility_mask = batch["led_visibility_mask"].to(led_outs.device)
         for i in range(led_preds.shape[1]):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i].float(), led_trues[:, i].float(), reduction='none')
-            # losses[i] = losses[i] * led_visibility_mask[:, i]
-            # losses[i] = losses[i].sum() / led_visibility_mask[:, i].sum()
+                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
         return losses, losses.detach().mean(0)
 
     
