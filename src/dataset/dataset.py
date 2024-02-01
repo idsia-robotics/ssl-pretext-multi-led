@@ -3,7 +3,8 @@ import h5py
 import torch
 import numpy as np
 import torchvision
-from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, GrayScaleAugmentation
+from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, GrayScaleAugmentation, VerticalFlipAugmentation
+from src.dataset.leds import compute_led_visibility
 
 
 class H5Dataset(torch.utils.data.Dataset):
@@ -93,7 +94,6 @@ class H5Dataset(torch.utils.data.Dataset):
         for i in range(len(self)):
             keys = self.proj_uvz_keys[self.data["robot_id"][i]]
             for k in keys:
-                # breakpoint()
                 if (self.data[k][i] > bounds[:, 0]).all() and (self.data[k][i] < bounds[:, 1]).all():
                     self.visibility_mask[i] = True
                     break
@@ -155,21 +155,18 @@ class H5Dataset(torch.utils.data.Dataset):
         for pose_rel_key in self.pose_rel_keys[slice_robot_id]:
             batch["pose_rel"] = torch.tensor(self.data[pose_rel_key][slice])
     
-        batch["led_mask"] = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.bool)
+        batch["led_mask"] = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.uint8)
         for i, led_key in enumerate(self.led_keys[slice_robot_id]):
             batch[led_key[4:]] = self.data[led_key][slice]
-            batch["led_mask"][i] = bool(self.data[led_key][slice])
+            batch["led_mask"][i] = self.data[led_key][slice].astype(np.uint8)
 
         for robot_id in self.robot_ids:
-            batch[robot_id + "_pose"] = torch.tensor(self.data[robot_id + "_pose"][slice].squeeze())
+            batch[robot_id + "_pose"] = self.data[robot_id + "_pose"][slice]
 
         
         batch['image'] = torch.tensor((self.data["image"][slice].astype(np.float32) / 255.).transpose(2, 0, 1))
         
-        batch["timestamp"] = torch.tensor([self.data["timestamp"][slice]])
-        # u_visible = (batch['proj_uvz'][0] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][0] < 640 + self.POS_ORB_SIZE // 2)
-        # v_visible = (batch['proj_uvz'][1] > 0 - self.POS_ORB_SIZE // 2) & (batch['proj_uvz'][1] < 360 + self.POS_ORB_SIZE // 2)
-        # z_visible = (batch['proj_uvz'][2] > 0)
+        batch["timestamp"] = self.data["timestamp"][slice]
         batch['robot_visible'] = self.visibility_mask[slice]
         batch['pos_map'] = torch.tensor(self.__position_map(batch["proj_uvz"], batch['robot_visible'], orb_size=self.POS_ORB_SIZE))
         # batch["distance_rel"] = torch.linalg.norm(batch["pose_rel"][:-1]).squeeze()
@@ -180,10 +177,23 @@ class H5Dataset(torch.utils.data.Dataset):
 
         if self.compute_visibility_mask:
             other_pose_rel = self.data[self.__other_rid('RM' + str(slice_robot_id)) + "_pose_rel_RM" + str(slice_robot_id)][slice]
-            other_theta_rel = np.arctan2(other_pose_rel[1], other_pose_rel[0])
-            led_visibility = (other_theta_rel >= self.LED_VISIBILITY_RANGES_RAD[:, :, 0]) &\
-                (other_theta_rel <= self.LED_VISIBILITY_RANGES_RAD[:, :, 1])
-            batch["led_visibility_mask"] = (led_visibility[:, 0] | led_visibility[:, 1])
+            # other_theta_rel = np.arctan2(other_pose_rel[1], other_pose_rel[0])
+            # led_visibility = (other_theta_rel >= self.LED_VISIBILITY_RANGES_RAD[:, :, 0]) &\
+            #     (other_theta_rel <= self.LED_VISIBILITY_RANGES_RAD[:, :, 1])
+            # batch["led_visibility_mask"] = np.logical_or.reduce(led_visibility, axis = 1)
+
+            theta = other_pose_rel[-1]
+            pose_rel_transform = np.eye(4)
+            pose_rel_transform[:2, -1] = batch["pose_rel"][:-1]
+            pose_rel_transform[:2, :2] = np.array([
+                [np.cos(theta), -np.sin(theta)],
+                [np.sin(theta), np.cos(theta)]
+            ])
+
+            batch["led_visibility_mask"] = compute_led_visibility(
+                pose_rel_transform,
+                other_pose_rel
+            )
     
         return self.transform(batch)
     
@@ -243,14 +253,14 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-#            RandomHorizontalFlip((360, 640)),
+            # RandomHorizontalFlip((360, 640)),
             RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
             SimplexNoiseTransform((360, 640)),
             ColorJitterAugmentation(
                brightness=.4,
                hue=.2
-           )
-        ])
+           )]
+        )
 
     camera_robot_id_int = None
     if camera_robot:
