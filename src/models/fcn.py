@@ -144,7 +144,6 @@ class FullyConvLossesMixin:
 
     def _led_status_loss(self, batch, model_out):
         led_outs = model_out[:, 4:, ...]
-        breakpoint()
         if self.led_inference == 'gt':
             pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
             pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
