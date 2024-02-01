@@ -208,7 +208,7 @@ def main():
     model_cls = get_model(args.model_type)
     model = model_cls(task = args.task).to(args.device)
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
-                                only_visible_robots=args.visible, compute_led_visibility=True,
+                                only_visible_robots=args.visible, compute_led_visibility=False,
                                 supervised_flagging=args.labeled_count,
                                 supervised_flagging_seed=args.labeled_count_seed
                                 )
