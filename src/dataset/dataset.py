@@ -158,7 +158,7 @@ class H5Dataset(torch.utils.data.Dataset):
         batch["led_mask"] = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.uint8)
         for i, led_key in enumerate(self.led_keys[slice_robot_id]):
             batch[led_key[4:]] = self.data[led_key][slice]
-            batch["led_mask"][i] = self.data[led_key][slice]
+            batch["led_mask"][i] = self.data[led_key][slice].astype(np.uint8)
 
         for robot_id in self.robot_ids:
             batch[robot_id + "_pose"] = self.data[robot_id + "_pose"][slice]
