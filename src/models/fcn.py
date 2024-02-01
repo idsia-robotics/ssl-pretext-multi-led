@@ -158,7 +158,7 @@ class FullyConvLossesMixin:
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
         for i in range(led_preds.shape[1]):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].double(), reduction='none')
+                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
         return losses, losses.detach().mean(0)
 
     
