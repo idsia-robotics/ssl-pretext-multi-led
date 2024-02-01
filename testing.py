@@ -21,16 +21,16 @@ def main():
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
                      compute_led_visibility=True,
                      distance_range=args.dist_range)
-    dataloader = DataLoader(ds, batch_size = 128, shuffle = False)
+    dataloader = DataLoader(ds, batch_size = 32, shuffle = False)
 
     using_mlflow = False
 
     if args.checkpoint_id:
         model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_task=args.task, return_run_id=True)
+                        model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}, return_run_id=True)
         using_mlflow = True
     else:
-        model = load_model_raw(args.checkpoint_path, model_task=args.task)
+        model = load_model_raw(args.checkpoint_path, model_kwargs={'task' : args.task, 'led_inference' : args.led_inference})
 
     model = model.to(args.device)
     model.eval()

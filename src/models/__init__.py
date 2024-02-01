@@ -79,7 +79,7 @@ import src.models.fcn
 import src.models.multi_scale_fcn
 import src.models.mobile_net
 
-def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task, return_run_id = False):
+def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwargs, return_run_id = False):
     runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")
     if len(runs) == 1:
         run = runs.iloc[0]
@@ -93,7 +93,7 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task
             checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
         else:
             checkpoint = torch.load(checkpoint_path)
-        model = get_model(checkpoint["model_name"])(model_task)
+        model = get_model(checkpoint["model_name"])(**model_kwargs)
         model.load_from_checkpoint(checkpoint)
         if return_run_id:
             return model, run_id
@@ -105,12 +105,12 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_task
         raise NotImplemented("Not handling case where multiple runs have the same name yet")
 
 
-def load_model_raw(checkpoint_path, model_task):
+def load_model_raw(checkpoint_path, model_kwargs):
     if not torch.cuda.is_available():
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     else:
         checkpoint = torch.load(checkpoint_path)
 
-    model = get_model(checkpoint["model_name"])(model_task)
+    model = get_model(checkpoint["model_name"])(**model_kwargs)
     model.load_from_checkpoint(checkpoint)
     return model

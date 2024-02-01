@@ -206,7 +206,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 def main():
     args = parse_args("train")
     model_cls = get_model(args.model_type)
-    model = model_cls(task = args.task).to(args.device)
+    model = model_cls(task = args.task, led_inference = args.led_inference).to(args.device)
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible, compute_led_visibility=False,
                                 supervised_flagging=args.labeled_count,
@@ -238,7 +238,6 @@ def main():
     supervised_count = args.labeled_count if args.labeled_count else ds_size
     if 'cuda' in args.device:
         torch.backends.cudnn.benchmark = True
-
 
     with mlflow.start_run(experiment_id=args.experiment_id, run_name=args.run_name) as run:
         mlflow.log_params(vars(args))
