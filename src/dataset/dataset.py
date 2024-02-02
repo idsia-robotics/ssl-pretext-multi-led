@@ -84,7 +84,7 @@ class H5Dataset(torch.utils.data.Dataset):
 
         # Are we filtering out for visible robots only?
         
-        self.visibility_mask = torch.zeros(len(self), dtype=torch.int8)
+        self.visibility_mask = torch.zeros(len(self), dtype=torch.bool)
 
         bounds = np.array([
             [0, 640], # u
