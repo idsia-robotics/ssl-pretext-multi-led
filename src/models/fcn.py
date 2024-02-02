@@ -86,8 +86,8 @@ class FullyConvPredictorMixin:
             size = size[0] * size[1]
             pos_preds = outs[:, :1, ...]
             pos_map = torch.ones_like(pos_preds, device=outs.device) / size
-            sup_flag = batch["supervised_flag"]
-            pos_map[sup_flag, ...] = pos_preds[sup_flag, ...]
+            vis_flag = batch["robot_visible"]
+            pos_map[vis_flag, ...] = pos_preds[vis_flag, ...]
             # sup_flag_neg = ~sup_flag
             # pos_map[sup_flag_neg, ...] = torch.ones(((sup_flag_neg).sum(), *pos_preds.shape[1:]), device=pos_preds.device)
 
@@ -166,9 +166,9 @@ class FullyConvLossesMixin:
             size = led_outs.shape[-2:]
             size = size[0] * size[1]
             masked_led_outs = torch.ones_like(self.__pose_pred_norm_cache, device=led_outs.device) / size
-            sup_flag = batch["supervised_flag"]
+            vis_flag = batch["robot_visible"]
             pos_preds = self.__pose_pred_norm_cache.detach()
-            masked_led_outs[sup_flag, ...] = pos_preds[sup_flag, ...]
+            masked_led_outs[vis_flag, ...] = pos_preds[vis_flag, ...]
             # sup_flag_neg = ~sup_flag
             # masked_led_outs[sup_flag_neg, ...] = torch.ones(((sup_flag_neg).sum(), *pos_preds.shape[1:]), device=pos_preds.device) / size
             masked_led_outs = masked_led_outs * led_outs
