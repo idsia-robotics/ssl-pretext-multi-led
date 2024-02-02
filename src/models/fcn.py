@@ -81,6 +81,16 @@ class FullyConvPredictorMixin:
             pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
         elif self.led_inference == 'pred':
             pos_map = outs[:, :1, ...]
+        if self.led_inference == "hybrid":
+            size = outs.shape[-2:]
+            size = size[0] * size[1]
+            pos_preds = outs[:, :1, ...]
+            pos_map = torch.ones_like(pos_preds, device=outs.device) / size
+            sup_flag = batch["supervised_flag"]
+            pos_map[sup_flag, ...] = pos_preds[sup_flag, ...]
+            # sup_flag_neg = ~sup_flag
+            # pos_map[sup_flag_neg, ...] = torch.ones(((sup_flag_neg).sum(), *pos_preds.shape[1:]), device=pos_preds.device)
+
         led_maps = outs[:, 4:, ...]
         # return torch.amax(led_maps, dim = (-1, -2)).detach().cpu().numpy()
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
@@ -152,7 +162,16 @@ class FullyConvLossesMixin:
         elif self.led_inference == 'pred':
             pos_preds = self.__pose_pred_norm_cache.detach()
             masked_led_outs = led_outs * pos_preds
-
+        elif self.led_inference == 'hybrid':
+            size = led_outs.shape[-2:]
+            size = size[0] * size[1]
+            masked_led_outs = torch.ones_like(self.__pose_pred_norm_cache, device=led_outs.device) / size
+            sup_flag = batch["supervised_flag"]
+            pos_preds = self.__pose_pred_norm_cache.detach()
+            masked_led_outs[sup_flag, ...] = pos_preds[sup_flag, ...]
+            # sup_flag_neg = ~sup_flag
+            # masked_led_outs[sup_flag_neg, ...] = torch.ones(((sup_flag_neg).sum(), *pos_preds.shape[1:]), device=pos_preds.device) / size
+            masked_led_outs = masked_led_outs * led_outs
         led_preds = masked_led_outs.sum(axis=[-1, -2])
         led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
         losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
