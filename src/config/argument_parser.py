@@ -29,7 +29,7 @@ def parse_args(*config):
         group.add_argument("--checkpoint-path", type=str)
 
         parser.add_argument("--inference-dump", default=None, type=Path)
-        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid"])
+        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
 
 
     if 'vis' in config:
