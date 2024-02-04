@@ -2,7 +2,7 @@ from torch import Tensor
 from torchvision.models import MobileNetV2
 import torch
 from src.models import ModelRegistry, BaseModel
-from src.models.fcn import FullyConvPredictorMixin, FullyConvLossesMixin
+from src.models.fcn import FullyConvPredictorMixin
 import torch.nn as nn
 
 
