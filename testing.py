@@ -57,8 +57,8 @@ def main():
         outs = model(image)
         proj_pred = model.predict_pos_from_outs(image, outs)
         dist_pred = model.predict_dist_from_outs(outs)
-        theta_pred, cos_pred, sin_pred = model.predict_orientation_from_outs(outs, return_cos_sin = True)
-        led_pred = model.predict_leds_from_outs(outs, batch)
+        theta_pred, cos_pred, sin_pred = model.predict_orientation_from_outs(outs, to_numpy = True)
+        led_pred = model.predict_leds(outs, batch)
         
         data['proj_pred'].extend(proj_pred)
         data['dist_pred'].extend(dist_pred)

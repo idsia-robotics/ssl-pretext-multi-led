@@ -170,7 +170,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
                     theta_trues.extend(batch["pose_rel"][:, -1])
                     theta_preds.extend(model.predict_orientation_from_outs(out))
-                    led_preds.extend(model.predict_leds_from_outs(out, batch))
+                    led_preds.extend(model.predict_leds(out, batch))
                     led_trues.extend(batch["led_mask"])
                     led_visibility.extend(batch["led_visibility_mask"])
 
