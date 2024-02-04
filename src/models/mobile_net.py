@@ -73,9 +73,11 @@ class InvertedBlock(nn.Module):
             return self.layers(x)
 
 @ModelRegistry("mobile_net")
-class MobileNetV2(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
-    def __init__(self, task):
-        super(MobileNetV2, self).__init__(task)
+class MobileNetV2(FullyConvPredictorMixin, BaseModel):
+    def __init__(self, **kwargs):
+
+        self.led_inference = kwargs.pop('led_inference')
+        super(MobileNetV2, self).__init__(**kwargs)
 
         self.configs=[
             # t, c, n, s
