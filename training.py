@@ -169,7 +169,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                     trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
 
                     theta_trues.extend(batch["pose_rel"][:, -1])
-                    theta_preds.extend(model.predict_orientation_from_outs(out))
+                    theta_preds.extend(model.predict_orientation_from_outs(out)[0])
                     led_preds.extend(model.predict_leds(out, batch))
                     led_trues.extend(batch["led_mask"])
                     led_visibility.extend(batch["led_visibility_mask"])
