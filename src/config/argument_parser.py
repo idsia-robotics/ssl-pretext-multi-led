@@ -55,7 +55,7 @@ def parse_args(*config):
         parser.add_argument("--w-led", default=.25, type = float)
         parser.add_argument("--labeled-count", default = None, type=int)
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
-        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid"])
+        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
 
 
 

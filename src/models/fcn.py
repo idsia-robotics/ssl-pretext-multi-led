@@ -27,12 +27,27 @@ class RangeRescaler(torch.nn.Module):
     
 class FullyConvPredictorMixin:
 
-    def __init__(self, led_inference) -> None:
-        self.led_inference = led_inference
+    def __init__(self, *args, **kwargs) -> None:
+        self.led_inference = kwargs.pop('led_inference')
+        super().__init__(*args, **kwargs)
+
+        if self.led_inference == 'gt':
+            self.predict_leds = self._predict_led_gt_pos
+        elif self.led_inference == 'pred':
+            self.predict_leds = self._predict_led_pred_pos
+        elif self.led_inference == 'hybrid':
+            self.predict_leds = self._predict_led_hybrid
+        elif self.led_inference == 'amax':
+            self.predict_leds = self._predict_led_amax
+        else:
+            raise NotImplementedError("Invalid led inference mode")
 
 
-    def predict_pos_from_outs(self, image, outs):
+    def predict_pos_from_outs(self, image, outs, to_numpy= True):
         outs = outs[:, :1, ...]
+        if not to_numpy:
+            return outs
+
         out_map_shape = outs.shape[-2:]
         outs = outs.view(outs.shape[0], -1)
         max_idx = outs.argmax(1).cpu()
@@ -51,162 +66,96 @@ class FullyConvPredictorMixin:
         outs = self(image)
         return self.predict_pos_from_outs(image, outs)
     
-    def predict_dist_from_outs(self, outs):
-        pos_map = outs[:, 0, ...]
+    def predict_dist_from_outs(self, outs, to_numpy= True, pos_norm = None):
+        if pos_norm is None:
+            pos_map = outs[:, 0, ...].detach()
+            pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        else:
+            pos_map_norm = pos_norm.detach().squeeze()
+
         dist_map = outs[:, 1, ...]
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         dist_scalars = (dist_map * pos_map_norm).sum(axis = (-1, -2))
-        return dist_scalars.detach().cpu().numpy()
+        if not to_numpy:
+            return dist_scalars
+        else:
+            return dist_scalars.detach().cpu().numpy()
     
     def predict_dist(self, image):
         outs = self(image)
         return self.predict_dist_from_outs(outs)
     
-    def predict_orientation_from_outs(self, outs, return_cos_sin = False):
-        pos_map = outs[:, 0, ...]
+    def predict_orientation_from_outs(self, outs, to_numpy = True, pos_norm = None):
+        if pos_norm is None:
+            pos_map = outs[:, 0, ...].detach()
+            pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        else:
+            pos_map_norm = pos_norm.detach().squeeze()
+            
         cos_map =outs[:, 2, ...]
         sin_map =outs[:, 3, ...]
 
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         cos_scalars = (cos_map * pos_map_norm).sum(axis = (-1, -2))
         sin_scalars = (sin_map * pos_map_norm).sum(axis = (-1, -2))
-        thetas = torch.atan2(sin_scalars, cos_scalars).detach().cpu().numpy()
-        if not return_cos_sin:
-            return thetas
+        if not to_numpy:
+            return cos_scalars, sin_scalars
         else:
+            thetas = torch.atan2(sin_scalars, cos_scalars).detach().cpu().numpy()
             return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
 
-    def predict_leds_from_outs(self, outs, batch):
-        if self.led_inference == 'gt':
-            pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
-        elif self.led_inference == 'pred':
-            pos_map = outs[:, :1, ...]
-        if self.led_inference == "hybrid":
-            size = outs.shape[-2:]
-            size = size[0] * size[1]
-            pos_preds = outs[:, :1, ...]
-            pos_map = torch.ones_like(pos_preds, device=outs.device) / size
-            vis_flag = batch["robot_visible"]
-            pos_map[vis_flag, ...] = pos_preds[vis_flag, ...]
-            # sup_flag_neg = ~sup_flag
-            # pos_map[sup_flag_neg, ...] = torch.ones(((sup_flag_neg).sum(), *pos_preds.shape[1:]), device=pos_preds.device)
-
+    def _predict_led_pred_pos(self, outs, batch, to_numpy= True, pos_norm=None):
         led_maps = outs[:, 4:, ...]
-        # return torch.amax(led_maps, dim = (-1, -2)).detach().cpu().numpy()
+        pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
-        return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+        if not to_numpy:
+            return masked_maps.sum(axis = [-1, -2])
+        else:
+            return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+        
+    def _predict_led_gt_pos(self, outs, batch, to_numpy= True, pos_norm = None):
+        led_maps = outs[:, 4:, ...]
+        pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        masked_maps = pos_map_norm * led_maps
 
+        if not to_numpy:
+            return masked_maps.sum(axis = [-1, -2])
+        else:
+            return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+        
+    def _predict_led_hybrid(self, outs, batch, to_numpy= True, pos_norm=None):
+        led_maps = outs[:, 4:, ...]
+        size = outs.shape[-2:]
+        size = size[0] * size[1]
+        pos_preds = outs[:, :1, ...]
+        pos_map = torch.ones_like(pos_preds, device=outs.device) / size
+        vis_flag = batch["robot_visible"]
+        pos_map[vis_flag, ...] = pos_preds[vis_flag, ...]
+        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        masked_maps = pos_map_norm * led_maps
+        if not to_numpy:
+            return masked_maps.sum(axis = [-1, -2])
+        else:
+            return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+
+    def _predict_led_amax(self, outs, batch, to_numpy= True, pos_norm = None):
+        led_maps = outs[:, 4:, ...]
+        preds = torch.amax(led_maps, dim = (-1, -2))
+        if not to_numpy:
+            return preds
+        else:
+            return preds.detach().cpu().numpy()
 
     def predict_orientation(self, image):
         outs = self(image)
         return self.predict_orientation_from_outs(outs)
     
-    # def predict_leds(self, image):
-    #     outs = self(image)
-    #     return self.predict_leds_from_outs(outs)
-    
-    def predict_leds_with_gt_pos(self, batch, image):
-        outs = self(image)
-        pos_map = batch["pos_map"].to(outs.device)
-        pos_map = resize(pos_map, outs.shape[-2:], antialias=False).float()
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = [-1, -2], keepdim=True)
-        led_maps = outs[:, 4:, ...]
-        masked_led = led_maps * pos_map_norm[:, None, ...]
-        return masked_led.sum(axis = [-1, -2]).detach().cpu().numpy()
-
-
-class FullyConvLossesMixin:
-
-    def __init__(self, led_inference) -> None:
-        self.led_inference = led_inference
-
-    def _robot_position_loss(self, batch, model_out : torch.tensor, eps = 1e-6):
-        pos_true = batch['pos_map'][:, None, ...].to(model_out.device)
-        pos_true = resize(pos_true, model_out.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
-        
-        pos_pred_sum = torch.sum(model_out + eps, axis = [-1, -2], keepdim=True)
-        pos_pred_norm = model_out / pos_pred_sum
-        self.__pose_pred_norm_cache = pos_pred_norm.detach()
-        loss = 1 - (pos_pred_norm * pos_true).sum(axis = (-3, -1, -2))
-        return loss
-    
-    def _robot_distance_loss(self, batch, model_out):
-        dist_out = model_out[:, 1:2, ...]
-        dist_gt = batch["distance_rel"].to(dist_out.device)
-        pos_out_norm = self.__pose_pred_norm_cache.detach()
-        dist_pred = (pos_out_norm * dist_out).sum(axis = [-3, -1, -2])
-        error = (dist_gt - dist_pred) ** 2
-        return error
-
-    def _robot_orientation_loss(self, batch, model_out):
-        theta = batch["pose_rel"][:, -1].to(model_out.device)
-        theta_cos = torch.cos(theta)
-        theta_sin = torch.sin(theta)
-        pos_out_norm = self.__pose_pred_norm_cache.detach()
-
-        model_out_cos = (model_out[:, 2:3, ...] * pos_out_norm).sum(axis = [-3, -1, -2])
-        model_out_sin = (model_out[:, 3:4, ...] * pos_out_norm).sum(axis = [-3, -1, -2])
-        cos_error = (theta_cos - model_out_cos) ** 2
-        sin_error = (theta_sin - model_out_sin) ** 2
-        return cos_error + sin_error
-    
-
-    def _led_status_loss(self, batch, model_out):
-        led_outs = model_out[:, 4:, ...]
-        if self.led_inference == 'gt':
-            pos_trues = batch["pos_map"][:, None, ...].to(led_outs.device)
-            pos_trues = resize(pos_trues, led_outs.shape[-2:], interpolation=InterpolationMode.NEAREST, antialias = False)
-            pos_trues = pos_trues / (pos_trues.sum((-1, -2), keepdims = True) + self.epsilon)
-            masked_led_outs = led_outs * pos_trues
-        elif self.led_inference == 'pred':
-            pos_preds = self.__pose_pred_norm_cache.detach()
-            masked_led_outs = led_outs * pos_preds
-        elif self.led_inference == 'hybrid':
-            size = led_outs.shape[-2:]
-            size = size[0] * size[1]
-            masked_led_outs = torch.ones_like(self.__pose_pred_norm_cache, device=led_outs.device) / size
-            vis_flag = batch["robot_visible"]
-            pos_preds = self.__pose_pred_norm_cache.detach()
-            masked_led_outs[vis_flag, ...] = pos_preds[vis_flag, ...]
-            # sup_flag_neg = ~sup_flag
-            # masked_led_outs[sup_flag_neg, ...] = torch.ones(((sup_flag_neg).sum(), *pos_preds.shape[1:]), device=pos_preds.device) / size
-            masked_led_outs = masked_led_outs * led_outs
-        led_preds = masked_led_outs.sum(axis=[-1, -2])
-        led_trues = batch["led_mask"].to(led_outs.device) # BATCH_SIZE x 6
-        losses = torch.zeros_like(led_trues, device=led_outs.device, dtype=torch.float32)
-        for i in range(led_preds.shape[1]):
-            losses[:, i] = torch.nn.functional.binary_cross_entropy(
-                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
-        return losses, losses.detach().mean(0)
-
-    
-    def _robot_pose_and_leds_loss(self, batch, model_out):
-        supervised_label = batch["supervised_flag"].to(model_out.device)
-
-        proj_loss = self._robot_position_loss(batch, model_out[:, :1, ...])
-        dist_loss = self._robot_distance_loss(batch, model_out)
-        orientation_loss = self._robot_orientation_loss(batch, model_out)
-        led_loss, led_losses = self._led_status_loss(batch, model_out)
-
-        unsupervised_label = ~supervised_label
-        
-        led_loss = led_loss.mean(-1) * unsupervised_label
-
-        proj_loss_norm = proj_loss * supervised_label
-        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
-        ori_loss_norm = (orientation_loss / 4) * supervised_label
-        
-        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
-            led_loss, led_losses
-
-
 
 @ModelRegistry("model_s")
-class Model_s(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
+class Model_s(FullyConvPredictorMixin, BaseModel):
     def __init__(self, *args, **kwargs):
-        self.led_inference = kwargs.pop('led_inference')
-        super(Model_s, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
             torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1),
@@ -234,47 +183,7 @@ class Model_s(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
 
         )
 
-        if self.task == 'presence':
-            self.robot_presence_layer = torch.nn.Sequential(
-                torch.nn.Flatten(),
-                torch.nn.LazyLinear(256),
-                torch.nn.LazyLinear(1),
-                torch.nn.Sigmoid()
-            )
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_presence_layer
-            )
-            self.loss = self.__robot_presence_loss
-        if self.task == 'position':
-            self.robot_position_layer = torch.nn.Sequential(
-                torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
-                torch.nn.Conv2d(3, 1, kernel_size=1, padding=0, stride=1),
-                torch.nn.Sigmoid()
-            )
-
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_position_layer
-            )
-            self.loss = self._robot_position_loss
-        elif self.task == 'pose':
-            self.robot_pose_layer = torch.nn.Sequential(
-                torch.nn.Conv2d(32, 4, kernel_size=1, padding=0, stride=1),
-                torch.nn.ReLU(),
-                torch.nn.BatchNorm2d(4),
-                torch.nn.Conv2d(4, 4, kernel_size=1, padding=0, stride=1),
-                # torch.nn.Sigmoid()
-            )
-
-            self.forward = self.__position_and_orientation_forward
-            self.loss = self.__robot_pose_loss
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_pose_layer
-            )
-            self.MAX_DIST_M = 5.
-        elif self.task == 'pose_and_led':
+        if self.task == 'pose_and_led':
             self.robot_pose_and_led_layer = torch.nn.Sequential(
                 torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1),
                 torch.nn.ReLU(),
@@ -289,6 +198,87 @@ class Model_s(BaseModel, FullyConvPredictorMixin, FullyConvLossesMixin):
                 self.robot_pose_and_led_layer
             )
             self.MAX_DIST_M = 5.
+        self.downscaler = torch.nn.AvgPool2d(8)
+
+        
+    def _robot_pose_and_leds_loss(self, batch, model_out):
+        supervised_label = batch["supervised_flag"].to(model_out.device)
+
+        proj_loss, proj_map_norm = self._robot_projection_loss(batch, model_out, return_norm=True)
+        dist_loss = self._robot_distance_loss(batch, model_out, proj_map_norm)
+        
+        orientation_loss = self._robot_orientation_loss(batch, model_out, proj_map_norm)
+        led_loss, led_losses = self._robot_led_loss(batch, model_out, proj_map_norm)
+
+        unsupervised_label = ~supervised_label
+        
+        led_loss = led_loss.mean(-1) * unsupervised_label
+
+        proj_loss_norm = proj_loss * supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
+        ori_loss_norm = (orientation_loss / 4) * supervised_label
+        
+        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
+            led_loss, led_losses       
+    
+    def _robot_projection_loss(self, batch, model_out : torch.Tensor, return_norm = False):
+        proj_pred = self.predict_pos_from_outs(
+            image = batch["image"].to(model_out.device),
+            outs=model_out,
+            to_numpy=False)
+        downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
+        proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
+        loss = torch.nn.functional.mse_loss(
+            proj_pred,
+            downscaled_gt_proj,
+            reduction='none'
+        ).mean(dim = (-1, -2))
+        if return_norm:
+            return loss, proj_pred_norm.detach()
+        else:
+            return loss
+        
+    def _robot_distance_loss(self, batch, model_out : torch.Tensor, proj_map_norm : torch.Tensor):
+        dist_pred = self.predict_dist_from_outs(model_out,
+                                                to_numpy=False,
+                                                pos_norm=proj_map_norm)
+        dist_gt = batch["distance_rel"].to(model_out.device)
+        error = torch.nn.functional.mse_loss(dist_gt, dist_pred, reduction='none')
+        return error
+    
+    def _robot_orientation_loss(self, batch, model_out, proj_map_norm):
+        theta = batch["pose_rel"][:, -1].to(model_out.device)
+        cos_pred, sin_pred = self.predict_orientation_from_outs(
+            outs=model_out,
+            to_numpy=False,
+            pos_norm=proj_map_norm
+        )
+        # breakpoint()
+        theta_cos = torch.cos(theta)
+        theta_sin = torch.sin(theta)
+        cos_error = torch.nn.functional.mse_loss(theta_cos, cos_pred, reduction='none')
+        sin_error = torch.nn.functional.mse_loss(theta_sin, sin_pred, reduction='none')
+
+        return cos_error + sin_error
+
+    def _robot_led_loss(self, batch, model_out, proj_map_norm):
+        led_trues = batch["led_mask"].to(model_out.device) # BATCH_SIZE x 6
+        led_preds = self.predict_leds(
+            model_out,
+            batch,
+            to_numpy=False,
+            pos_norm=proj_map_norm
+        )
+        losses = torch.zeros_like(led_trues, device=model_out.device, dtype=torch.float32)
+        for i in range(led_preds.shape[1]):
+            losses[:, i] = torch.nn.functional.binary_cross_entropy(
+                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
+        return losses, losses.detach().mean(0)        
+
+
+
+        
+
         
     
     def pose_and_leds_forward(self, x):

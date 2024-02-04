@@ -6,7 +6,7 @@ from mlflow.artifacts import download_artifacts
 
 class BaseModel(torch.nn.Module):
 
-    def __init__(self, task , checkpoint_file = None) -> None:
+    def __init__(self, task , checkpoint_file = None, **kwargs) -> None:
         super().__init__()
         self.task = task
         self.checkpoint_file = checkpoint_file
