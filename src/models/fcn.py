@@ -41,6 +41,7 @@ class FullyConvPredictorMixin:
             self.predict_leds = self._predict_led_amax
         else:
             raise NotImplementedError("Invalid led inference mode")
+        self.downscaler = torch.nn.AvgPool2d(8)
 
 
     def predict_pos_from_outs(self, image, outs, to_numpy= True):
@@ -104,7 +105,7 @@ class FullyConvPredictorMixin:
 
     def _predict_led_pred_pos(self, outs, batch, to_numpy= True, pos_norm=None):
         led_maps = outs[:, 4:, ...]
-        pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
+        pos_map = self.downscaler(batch["pos_map"].to(outs.device))[:, None, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
         if not to_numpy:
@@ -114,15 +115,14 @@ class FullyConvPredictorMixin:
         
     def _predict_led_gt_pos(self, outs, batch, to_numpy= True, pos_norm = None):
         led_maps = outs[:, 4:, ...]
-        pos_map = resize(batch["pos_map"].to(outs.device), outs.shape[-2:], antialias=False)[:, None, ...]
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        pos_map = self.downscaler(batch["pos_map"].to(outs.device))[:, None, ...]
         pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         masked_maps = pos_map_norm * led_maps
 
         if not to_numpy:
-            return masked_maps.sum(axis = [-1, -2])
+            return masked_maps.sum(axis = [-1, -2]) * .9999
         else:
-            return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy()
+            return masked_maps.sum(axis = [-1, -2]).detach().cpu().numpy() * .9999
         
     def _predict_led_hybrid(self, outs, batch, to_numpy= True, pos_norm=None):
         led_maps = outs[:, 4:, ...]
@@ -225,14 +225,16 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         proj_pred = self.predict_pos_from_outs(
             image = batch["image"].to(model_out.device),
             outs=model_out,
-            to_numpy=False)
+            to_numpy=False).float()
         downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
+        downscaled_gt_proj_norm = downscaled_gt_proj / downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True)
         proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
-        loss = torch.nn.functional.mse_loss(
-            proj_pred,
-            downscaled_gt_proj.float(),
-            reduction='none'
-        ).mean(dim = (-1, -2))
+        loss = 1 - (proj_pred_norm * downscaled_gt_proj_norm).sum(axis = (-1, -2))
+        # loss = torch.nn.functional.mse_loss(
+        #     proj_pred,
+        #     downscaled_gt_proj.float(),
+        #     reduction='none'
+        # ).mean(dim = (-1, -2))
         if return_norm:
             return loss, proj_pred_norm.detach()
         else:
@@ -241,9 +243,9 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
     def _robot_distance_loss(self, batch, model_out : torch.Tensor, proj_map_norm : torch.Tensor):
         dist_pred = self.predict_dist_from_outs(model_out,
                                                 to_numpy=False,
-                                                pos_norm=proj_map_norm)
+                                                pos_norm=proj_map_norm).float()
         dist_gt = batch["distance_rel"].to(model_out.device)
-        error = torch.nn.functional.mse_loss(dist_gt, dist_pred, reduction='none')
+        error = torch.nn.functional.mse_loss(dist_pred, dist_gt, reduction='none')
         return error
     
     def _robot_orientation_loss(self, batch, model_out, proj_map_norm):
@@ -253,11 +255,10 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
             to_numpy=False,
             pos_norm=proj_map_norm
         )
-        # breakpoint()
         theta_cos = torch.cos(theta)
         theta_sin = torch.sin(theta)
-        cos_error = torch.nn.functional.mse_loss(theta_cos, cos_pred, reduction='none')
-        sin_error = torch.nn.functional.mse_loss(theta_sin, sin_pred, reduction='none')
+        cos_error = torch.nn.functional.mse_loss(cos_pred.float(), theta_cos, reduction='none')
+        sin_error = torch.nn.functional.mse_loss(sin_pred.float(), theta_sin, reduction='none')
 
         return cos_error + sin_error
 
@@ -268,19 +269,13 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
             batch,
             to_numpy=False,
             pos_norm=proj_map_norm
-        )
+        ).float()
         losses = torch.zeros_like(led_trues, device=model_out.device, dtype=torch.float32)
         for i in range(led_preds.shape[1]):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
         return losses, losses.detach().mean(0)        
 
-
-
-        
-
-        
-    
     def pose_and_leds_forward(self, x):
         out = self.layers(x)
         out = torch.cat(
