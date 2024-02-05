@@ -76,17 +76,16 @@ class InvertedBlock(nn.Module):
 class MobileNetV2(FullyConvPredictorMixin, BaseModel):
     def __init__(self, **kwargs):
 
-        self.led_inference = kwargs.pop('led_inference')
         super(MobileNetV2, self).__init__(**kwargs)
 
         self.configs=[
             # t, c, n, s
-            [1, 32, 1, 1],
+            [1, 32, 1, 2],
             [6, 64, 2, 2],
             [6, 128, 3, 2],
         ]
 
-        self.stem_conv = conv3x3(3, 32, stride=2)
+        self.stem_conv = conv3x3(3, 32, stride=1)
 
         layers = []
         input_channel = 32
@@ -104,18 +103,14 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
         # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
 
         self.MAX_DIST_M = 5.
+        self.avg_pool2d = nn.AvgPool2d(4)
+        self.upscaler = nn.ConvTranspose2d(10, 10, 2, stride=2)
         self.loss = self._robot_pose_and_leds_loss
-        self.avg_pool2d = nn.AvgPool2d(2)
-        # self.upscaler = nn.ConvTranspose2d(10, 10, 4)
-        # self.upscaler = nn.UpsamplingBilinear2d(scale_factor=2)
 
     def forward(self, x):
-        x = self.avg_pool2d(x)
         x = self.stem_conv(x)
         x = self.layers(x)
         x = self.last_conv(x)
-        # x = self.last_layer(x)
-        # x = self.upscaler(x)
         return self.pose_and_leds_non_lin(x)
 
     def pose_and_leds_non_lin(self, x):
@@ -129,3 +124,79 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
             axis = 1)
         out[:, 1, ...] = out[:, 1, ...] * self.MAX_DIST_M
         return out
+
+
+    def _robot_pose_and_leds_loss(self, batch, model_out):
+        supervised_label = batch["supervised_flag"].to(model_out.device)
+
+        proj_loss, proj_map_norm = self._robot_projection_loss(batch, model_out, return_norm=True)
+        dist_loss = self._robot_distance_loss(batch, model_out, proj_map_norm)
+        
+        orientation_loss = self._robot_orientation_loss(batch, model_out, proj_map_norm)
+        led_loss, led_losses = self._robot_led_loss(batch, model_out, proj_map_norm)
+
+        unsupervised_label = ~supervised_label
+        
+        led_loss = led_loss.mean(-1) * unsupervised_label
+
+        proj_loss_norm = proj_loss * supervised_label
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
+        ori_loss_norm = (orientation_loss / 4) * supervised_label
+        
+        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
+            led_loss, led_losses       
+    
+    def _robot_projection_loss(self, batch, model_out : torch.Tensor, return_norm = False):
+        proj_pred = self.predict_pos_from_outs(
+            image = batch["image"].to(model_out.device),
+            outs=model_out,
+            to_numpy=False).float()
+        downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
+        downscaled_gt_proj_norm = downscaled_gt_proj / downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True)
+        proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
+        loss = 1 - (proj_pred_norm * downscaled_gt_proj_norm).sum(axis = (-1, -2))
+        # loss = torch.nn.functional.mse_loss(
+        #     proj_pred,
+        #     downscaled_gt_proj.float(),
+        #     reduction='none'
+        # ).mean(dim = (-1, -2))
+        if return_norm:
+            return loss, proj_pred_norm.detach()
+        else:
+            return loss
+        
+    def _robot_distance_loss(self, batch, model_out : torch.Tensor, proj_map_norm : torch.Tensor):
+        dist_pred = self.predict_dist_from_outs(model_out,
+                                                to_numpy=False,
+                                                pos_norm=proj_map_norm).float()
+        dist_gt = batch["distance_rel"].to(model_out.device)
+        error = torch.nn.functional.mse_loss(dist_pred, dist_gt, reduction='none')
+        return error
+    
+    def _robot_orientation_loss(self, batch, model_out, proj_map_norm):
+        theta = batch["pose_rel"][:, -1].to(model_out.device)
+        cos_pred, sin_pred = self.predict_orientation_from_outs(
+            outs=model_out,
+            to_numpy=False,
+            pos_norm=proj_map_norm
+        )
+        theta_cos = torch.cos(theta)
+        theta_sin = torch.sin(theta)
+        cos_error = torch.nn.functional.mse_loss(cos_pred.float(), theta_cos, reduction='none')
+        sin_error = torch.nn.functional.mse_loss(sin_pred.float(), theta_sin, reduction='none')
+
+        return cos_error + sin_error
+
+    def _robot_led_loss(self, batch, model_out, proj_map_norm):
+        led_trues = batch["led_mask"].to(model_out.device) # BATCH_SIZE x 6
+        led_preds = self.predict_leds(
+            model_out,
+            batch,
+            to_numpy=False,
+            pos_norm=proj_map_norm
+        ).float()
+        losses = torch.zeros_like(led_trues, device=model_out.device, dtype=torch.float32)
+        for i in range(led_preds.shape[1]):
+            losses[:, i] = torch.nn.functional.binary_cross_entropy(
+                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
+        return losses, losses.detach().mean(0)        
