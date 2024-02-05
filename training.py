@@ -20,16 +20,16 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
     optimizer = model.optimizer(lr)
 
-    # lr_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 2e-5, -1)
+    lr_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, lr / 100, -1)
 
-    lr_schedule = torch.optim.lr_scheduler.SequentialLR(
-        optimizer,
-        [
-            torch.optim.lr_scheduler.ConstantLR(optimizer, .1, total_iters = 5),
-            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 1e-5, -1)
-        ],
-        milestones=[3,]
-    )
+#    lr_schedule = torch.optim.lr_scheduler.SequentialLR(
+#        optimizer,
+#        [
+#            torch.optim.lr_scheduler.ConstantLR(optimizer, .1, total_iters = 5),
+#            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, 1e-5, -1)
+#        ],
+#        milestones=[3,]
+#    )
 
     _cuda_weights = {k: torch.tensor([v], device = device) for k, v in loss_weights.items()}
     supervised_count = torch.tensor([supervised_count + 1e-15], device=device)
