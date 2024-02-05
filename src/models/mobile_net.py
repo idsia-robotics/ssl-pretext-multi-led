@@ -82,10 +82,10 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
             # t, c, n, s
             [1, 32, 1, 2],
             [6, 64, 2, 2],
-            [6, 128, 3, 2],
+            [6, 128, 2, 1],
         ]
 
-        self.stem_conv = conv3x3(3, 32, stride=1)
+        self.stem_conv = conv3x3(3, 32, stride=2)
 
         layers = []
         input_channel = 32
@@ -103,8 +103,8 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
         # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
 
         self.MAX_DIST_M = 5.
-        self.avg_pool2d = nn.AvgPool2d(4)
-        self.upscaler = nn.ConvTranspose2d(10, 10, 2, stride=2)
+#        self.avg_pool2d = nn.AvgPool2d(4)
+#        self.upscaler = nn.ConvTranspose2d(10, 10, 2, stride=2)
         self.loss = self._robot_pose_and_leds_loss
 
     def forward(self, x):
@@ -152,7 +152,7 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
             outs=model_out,
             to_numpy=False).float()
         downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
-        downscaled_gt_proj_norm = downscaled_gt_proj / downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True)
+        downscaled_gt_proj_norm = downscaled_gt_proj / (downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True) + 1e-6)
         proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
         loss = 1 - (proj_pred_norm * downscaled_gt_proj_norm).sum(axis = (-1, -2))
         # loss = torch.nn.functional.mse_loss(
