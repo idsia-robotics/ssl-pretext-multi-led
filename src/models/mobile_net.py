@@ -103,8 +103,6 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
         # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
 
         self.MAX_DIST_M = 5.
-#        self.avg_pool2d = nn.AvgPool2d(4)
-#        self.upscaler = nn.ConvTranspose2d(10, 10, 2, stride=2)
         self.loss = self._robot_pose_and_leds_loss
 
     def forward(self, x):
@@ -200,3 +198,108 @@ class MobileNetV2(FullyConvPredictorMixin, BaseModel):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
         return losses, losses.detach().mean(0)        
+
+
+
+@ModelRegistry("mobile_net_led")
+class MobileNet_led(FullyConvPredictorMixin, BaseModel):
+    def __init__(self, **kwargs):
+
+        super(MobileNet_led, self).__init__(**kwargs)
+
+        self.configs=[
+            # t, c, n, s
+            [1, 16, 1, 1],
+            [6, 24, 2, 2],
+            [6, 32, 3, 2],
+            [6, 64, 4, 2],
+            [6, 96, 3, 1],
+            [6, 160, 3, 2],
+            [6, 320, 1, 1]
+        ]
+
+        self.stem_conv = conv3x3(3, 32, stride=2)
+
+        layers = []
+        input_channel = 32
+        for t, c, n, s in self.configs:
+            for i in range(n):
+                stride = s if i == 0 else 1
+                layers.append(InvertedBlock(ch_in=input_channel, ch_out=c, expand_ratio=t, stride=stride))
+                input_channel = c
+
+        self.layers = nn.Sequential(*layers)
+
+        self.last_conv = conv1x1_raw(input_channel, 10)
+
+        self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=1, padding=0, stride=1)
+        self.linear = torch.nn.LazyLinear(6)
+        # self.last_layer = torch.nn.Conv2d(1280, 10, kernel_size=3, padding=3, stride=1, dilation=3)
+
+        self.MAX_DIST_M = 5.
+        self.loss = self._robot_pose_and_leds_loss
+        self.downscaler = torch.nn.AvgPool2d(2, stride = 2)
+
+    def forward(self, x):
+        x = self.downscaler(x)
+        x = self.stem_conv(x)
+        x = self.layers(x)
+        x = self.last_conv(x)
+        x = x.flatten(1)
+        x = self.linear(x)
+        x = torch.nn.functional.sigmoid(x)
+        return x
+
+    def pose_and_leds_non_lin(self, x):
+        out = torch.cat(
+            [
+                torch.nn.functional.sigmoid(x[:, :2, ...]), # pos and dist
+                torch.nn.functional.tanh(x[:, 2:4, ...]), # orientation
+                torch.nn.functional.sigmoid(x[:, 4:, ...]), # leds
+                
+            ],
+            axis = 1)
+        out[:, 1, ...] = out[:, 1, ...] * self.MAX_DIST_M
+        return out
+
+    def _robot_pose_and_leds_loss(self, batch, model_out):
+        supervised_label = batch["supervised_flag"].to(model_out.device)
+
+        led_loss, led_losses = self._robot_led_loss(batch, model_out)
+
+        unsupervised_label = ~supervised_label
+        
+        led_loss = led_loss.mean(-1) * unsupervised_label
+
+        proj_loss_norm =torch.tensor([0.0], device = model_out.device)
+        dist_loss_norm =torch.tensor([0.0], device = model_out.device)
+        ori_loss_norm = torch.tensor([0.0], device = model_out.device)
+        
+        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
+            led_loss, led_losses       
+    
+
+    def _robot_led_loss(self, batch, model_out, proj_map_norm = None):
+        led_trues = batch["led_mask"].to(model_out.device) # BATCH_SIZE x 6
+        led_preds = model_out
+        losses = torch.zeros_like(led_trues, device=model_out.device, dtype=torch.float32)
+        for i in range(led_preds.shape[1]):
+            losses[:, i] = torch.nn.functional.binary_cross_entropy(
+                    led_preds[:, i], led_trues[:, i].float(), reduction='none')
+        return losses, losses.detach().mean(0)
+    
+    def predict_pos_from_outs(self, image, outs, to_numpy=True):
+        return torch.zeros((image.shape[0], 2)).cpu().numpy()
+    
+    def predict_orientation_from_outs(self, outs, to_numpy=True):
+        return (torch.zeros((outs.shape[0], 1)).cpu().numpy(), ) * 3
+        
+    def predict_dist_from_outs(self, outs, to_numpy=True):
+        return torch.zeros((outs.shape[0], 1)).cpu().numpy()
+    
+    def _predict_led_amax(self, outs, batch, to_numpy= True, pos_norm = None):
+        if not to_numpy:
+            return outs
+        else:
+            return outs.detach().cpu().numpy()
+        
