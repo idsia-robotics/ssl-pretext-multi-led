@@ -229,7 +229,6 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         # downscaled_gt_proj_norm = downscaled_gt_proj / (downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True) + self.epsilon)
         proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
         loss = 1 - (proj_pred_norm * downscaled_gt_proj).sum(axis = (-1, -2, -3))
-        breakpoint()
         # loss = torch.nn.functional.mse_loss(
         #     proj_pred,
         #     downscaled_gt_proj.float(),
