@@ -92,11 +92,10 @@ class FullyConvPredictorMixin:
         else:
             pos_map_norm = pos_norm.detach().squeeze()
             
-        cos_map =outs[:, 2, ...]
-        sin_map =outs[:, 3, ...]
-
-        cos_scalars = (cos_map * pos_map_norm).sum(axis = (-1, -2))
-        sin_scalars = (sin_map * pos_map_norm).sum(axis = (-1, -2))
+        maps =outs[:, 2:4, ...]
+        scalars = (maps * pos_map_norm[:, None, ...]).sum(axis = (-1, -2))
+        cos_scalars = scalars[:, 0, ...]
+        sin_scalars = scalars[:, 1, ...]
         if not to_numpy:
             return cos_scalars, sin_scalars
         else:
@@ -227,9 +226,10 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
             outs=model_out,
             to_numpy=False).float()
         downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
-        downscaled_gt_proj_norm = downscaled_gt_proj / downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True)
+        # downscaled_gt_proj_norm = downscaled_gt_proj / (downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True) + self.epsilon)
         proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
-        loss = 1 - (proj_pred_norm * downscaled_gt_proj_norm).sum(axis = (-1, -2))
+        loss = 1 - (proj_pred_norm * downscaled_gt_proj).sum(axis = (-1, -2, -3))
+        breakpoint()
         # loss = torch.nn.functional.mse_loss(
         #     proj_pred,
         #     downscaled_gt_proj.float(),
@@ -404,13 +404,12 @@ class Deep_Model_s(Model_s):
         super(Deep_Model_s, self).__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, bias = False),
-            torch.nn.BatchNorm2d(6),
+            torch.nn.Conv2d(3, 4, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(4),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.Conv2d(4, 8, kernel_size=3, padding=1, stride=1, bias = False),
             torch.nn.BatchNorm2d(8),
             torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
             torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1, bias = False),
             torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
@@ -419,13 +418,17 @@ class Deep_Model_s(Model_s):
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 32, kernel_size=5, padding=6, stride=1, dilation = 3, bias = False),
-            torch.nn.BatchNorm2d(32),
+            torch.nn.Conv2d(32, 64, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=5, padding=4, stride=1, dilation=2, bias = False),
-            torch.nn.BatchNorm2d(32),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(64, 64, kernel_size=5, padding=6, stride=1, dilation = 3, bias = False),
+            torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1, bias=False),
+            torch.nn.Conv2d(64, 64, kernel_size=5, padding=4, stride=1, dilation=2, bias = False),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1, bias=False),
             torch.nn.BatchNorm2d(10),
             torch.nn.ReLU(),
             # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
