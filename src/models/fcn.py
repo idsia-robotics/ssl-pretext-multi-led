@@ -403,31 +403,31 @@ class Deep_Model_s(Model_s):
         super(Deep_Model_s, self).__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 4, kernel_size=3, padding=1, stride=1, bias = False),
-            torch.nn.BatchNorm2d(4),
+            torch.nn.Conv2d(3, 6, kernel_size=7, padding=3, stride=2, bias = False),
+            torch.nn.BatchNorm2d(6),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(4, 8, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.Conv2d(6, 8, kernel_size=5, padding=2, stride=1, bias = False),
             torch.nn.BatchNorm2d(8),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1, bias = False),
+            torch.nn.Conv2d(8, 16, kernel_size=5, padding=2, stride=2, bias = False),
             torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1, bias = False),
+            # torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(16, 32, kernel_size=5, padding=2, stride=1, bias = False),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 64, kernel_size=3, padding=1, stride=1, bias = False),
+            # torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 64, kernel_size=5, padding=2, stride=2, bias = False),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(64, 64, kernel_size=5, padding=6, stride=1, dilation = 3, bias = False),
+            # torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(64, 64, kernel_size=5, padding=2, stride=1, bias = False),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(64, 64, kernel_size=5, padding=4, stride=1, dilation=2, bias = False),
+            torch.nn.Conv2d(64, 64, kernel_size=5, padding=2, stride=1, bias = False),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1, bias=False),
+            torch.nn.Conv2d(64, 10, kernel_size=3, padding=1, stride=1, bias=False),
             torch.nn.BatchNorm2d(10),
             torch.nn.ReLU(),
             # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
@@ -458,3 +458,11 @@ class Deep_Model_s(Model_s):
             ],
             axis = 1)
         return out
+    
+    def to(self, *args, **kwargs):
+        res = super().to(*args, **kwargs)
+        self.deep_robot_pose_and_led_layer = [
+            b.to(*args, **kwargs) for b in self.deep_robot_pose_and_led_layer
+        ]
+        return res
+
