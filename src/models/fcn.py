@@ -87,10 +87,13 @@ class FullyConvPredictorMixin:
     
     def predict_orientation_from_outs(self, outs, to_numpy = True, pos_norm = None):
         if pos_norm is None:
-            pos_map = outs[:, 0, ...].detach()
+            pos_map = outs[:, :1, ...].detach()
             pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
         else:
-            pos_map_norm = pos_norm.detach().squeeze()
+            pos_map_norm = pos_norm.detach()
+
+        if len(pos_map_norm.shape) < 4:
+            pos_map_norm = pos_map_norm[..., None, :, :]
             
         maps =outs[:, 2:4, ...]
         scalars = (maps * pos_map_norm[:, None, ...]).sum(axis = (-1, -2))
