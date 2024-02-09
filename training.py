@@ -10,17 +10,28 @@ from tqdm import trange
 import numpy as np
 
 
+def get_lr_scheduler(schedule_name, optimizer, epochs, lr):
+    if schedule_name == 'cosine':
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, lr / 100, -1)
+    elif schedule_name == 'shark':
+        return torch.optim.lr_scheduler.SequentialLR(optimizer,
+                                                    [
+                                                    torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, lr / 100, -1)
+                                                    ] * 2,
+                                                     [epochs // 2,])
+        
 def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                epochs, supervised_count, unsupervised_count,
                lr = .001, validation_rate = 10,
                checkpoint_logging_rate = 10,
                loss_weights = {'pos' : .2,'dist' : .0,'ori' : .0,'led' : .8},
+               lr_schedule = 'cosine'
                ):
     
 
     optimizer = model.optimizer(lr)
 
-    lr_schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, lr / 100, -1)
+    lr_schedule = get_lr_scheduler(lr_schedule, optimizer, epochs, lr)
 
     _cuda_weights = {k: torch.tensor([v], device = device) for k, v in loss_weights.items()}
     supervised_count = torch.tensor([supervised_count + 1e-15], device=device)
@@ -135,7 +146,7 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                 for batch in val_dataloader:
                     image = batch['image'].to(device)
                     
-                    out = model(image)
+                    out = model.forward(image)
                     p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
                     mean_p_loss = p_loss.mean().detach()
                     mean_d_loss = d_loss.mean().detach()
@@ -216,8 +227,10 @@ def main():
     
     
     if args.dry_run:
-        return
-    
+        for name, val in mlflow.__dict__.items():
+            if callable(val):
+                val = lambda *args, **kwargs: (None, )
+
     loss_weights = {
         'pos' : args.w_proj,
         'dist' : args.w_dist,
@@ -235,7 +248,8 @@ def main():
         train_loop(model, train_dataloader, validation_dataloader, args.device,
                    epochs=args.epochs, lr=args.learning_rate, loss_weights = loss_weights,
                    supervised_count=supervised_count,
-                   unsupervised_count=ds_size - supervised_count)
+                   unsupervised_count=ds_size - supervised_count,
+                   lr_schedule=args.lr_schedule)
         print(run.info.run_id)
 
 

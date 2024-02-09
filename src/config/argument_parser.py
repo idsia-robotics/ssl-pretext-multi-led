@@ -56,6 +56,8 @@ def parse_args(*config):
         parser.add_argument("--labeled-count", default = None, type=int)
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
         parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
+        parser.add_argument("--lr-schedule", type=str, choices=["cosine", "shark"], default='cosine')
+
 
 
 
