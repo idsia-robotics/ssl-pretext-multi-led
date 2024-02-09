@@ -16,7 +16,7 @@ def get_lr_scheduler(schedule_name, optimizer, epochs, lr):
     elif schedule_name == 'shark':
         return torch.optim.lr_scheduler.SequentialLR(optimizer,
                                                     [
-                                                    torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, lr / 100, -1)
+                                                    torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs // 2, lr / 100, -1)
                                                     ] * 2,
                                                      [epochs // 2,])
         
