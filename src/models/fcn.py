@@ -88,15 +88,15 @@ class FullyConvPredictorMixin:
     def predict_orientation_from_outs(self, outs, to_numpy = True, pos_norm = None):
         if pos_norm is None:
             pos_map = outs[:, :1, ...].detach()
-            pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+            pos_map_norm = (pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)).squeeze()
         else:
-            pos_map_norm = pos_norm.detach()
+            pos_map_norm = pos_norm.detach().squeeze()
 
         if len(pos_map_norm.shape) < 4:
             pos_map_norm = pos_map_norm[..., None, :, :]
             
         maps =outs[:, 2:4, ...]
-        scalars = (maps * pos_map_norm[:, None, ...]).sum(axis = (-1, -2))
+        scalars = (maps * pos_map_norm).sum(axis = (-1, -2))
         cos_scalars = scalars[:, 0, ...]
         sin_scalars = scalars[:, 1, ...]
         if not to_numpy:
@@ -107,9 +107,9 @@ class FullyConvPredictorMixin:
 
     def _predict_led_pred_pos(self, outs, batch, to_numpy= True, pos_norm=None):
         led_maps = outs[:, 4:, ...]
-        pos_map = self.downscaler(batch["pos_map"].to(outs.device))[:, None, ...]
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
-        masked_maps = pos_map_norm * led_maps
+        if pos_norm is None:
+            pos_norm = outs[:, :1, ...] / torch.sum(outs[:, :1, ...], axis = (-1, -2), keepdim = True)
+        masked_maps = pos_norm * led_maps
         if not to_numpy:
             return masked_maps.sum(axis = [-1, -2])
         else:
