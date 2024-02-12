@@ -52,7 +52,7 @@ def parse_args(*config):
         parser.add_argument("--w-proj", default=.25, type = float)
         parser.add_argument("--w-dist", default=.25, type = float)
         parser.add_argument("--w-ori", default=.25, type = float)
-        parser.add_argument("-bs" "--batch-size", "--batch", default=64, type = int, dest='batch_size')
+        parser.add_argument("-bs", "--batch-size", "--batch", default=64, type = int, dest='batch_size')
         parser.add_argument("--w-led", default=.25, type = float)
         parser.add_argument("--labeled-count", default = None, type=int)
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
