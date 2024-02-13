@@ -19,16 +19,16 @@ def main():
                      augmentations=args.augmentations, only_visible_robots=True,
                      sample_count=args.sample_count, sample_count_seed=args.sample_count_seed,
                      compute_led_visibility=True)
-    dataloader = DataLoader(ds, batch_size = 64, shuffle = False)
+    dataloader = DataLoader(ds, batch_size = 32, shuffle = False)
 
 
     if args.checkpoint_id:
         model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_task=args.task, return_run_id=True)
+                        model_kwargs=args.task, return_run_id=True)
         using_mlflow = True
     else:
         using_mlflow = False
-        model = load_model_raw(args.checkpoint_path, model_task=args.task)
+        model = load_model_raw(args.checkpoint_path, model_kwargs={'task' : args.task, 'led_inference' : args.led_inference})
 
     model = model.to(args.device)
     model.eval()
@@ -44,7 +44,8 @@ def main():
         # print(batch["led_visibility_mask"][0])
         # plt.show()
         outs = model(image)
-        led_preds.extend(model.predict_leds_with_gt_pos(batch, image))
+        # breakpoint()
+        led_preds.extend(model.predict_leds(outs, batch))
         led_trues.extend(batch['led_mask'])
         led_visibility.extend(batch['led_visibility_mask'])
 
