@@ -165,3 +165,11 @@ class GrayScaleAugmentation(Grayscale):
         transformed_image=super().__call__(batch['image'])
         batch['image'] = transformed_image
         return batch
+    
+class GunHider(torch.nn.Module):
+
+    def __call__(self, batch) -> Any:
+        img = batch['image']
+        img[..., 280:, 270:370] = 0
+        batch['image'] = img
+        return batch

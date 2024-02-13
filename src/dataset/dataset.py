@@ -3,7 +3,7 @@ import h5py
 import torch
 import numpy as np
 import torchvision
-from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, GrayScaleAugmentation
+from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, GrayScaleAugmentation, GunHider
 from src.dataset.leds import compute_led_visibility
 
 
@@ -254,6 +254,7 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     if augmentations:
         transform = torchvision.transforms.Compose([
             # RandomHorizontalFlip((360, 640)),
+            GunHider(),
             RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
             SimplexNoiseTransform((360, 640)),
             ColorJitterAugmentation(
@@ -287,7 +288,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("../robomaster_led/robomaster_ds_full_on_training.h5")
+    dataset = H5Dataset("../robomaster_led/test_new_policy_3.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
     counts = {}
     start_time = time()
