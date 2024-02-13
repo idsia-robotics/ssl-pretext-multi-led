@@ -64,11 +64,11 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
             p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
 
-            # same_led_mask = batch["led_mask"][:, 0] == batch["led_mask"][:, 3]
-            # p_loss = p_loss[same_led_mask]
-            # d_loss = d_loss[same_led_mask]
-            # o_loss = o_loss[same_led_mask]
-            # led_loss = led_loss[same_led_mask]
+            same_led_mask = batch["led_mask"][:, -1] == batch["led_mask"][:, -2]
+            p_loss = p_loss[same_led_mask]
+            d_loss = d_loss[same_led_mask]
+            o_loss = o_loss[same_led_mask]
+            led_loss = led_loss[same_led_mask]
 
             summed_p_loss = p_loss.sum()
             summed_d_loss = d_loss.sum()
@@ -200,8 +200,8 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             aucs = []
             for i, led_label in enumerate(H5Dataset.LED_TYPES):
                 vis = led_visibility[:, i]
-                # same_led_mask = led_trues[:, 0] == led_trues[:, 3]
-                # vis = vis & same_led_mask
+                same_led_mask = led_trues[:, -1] == led_trues[:, -2]
+                vis = vis & same_led_mask
                 auc = binary_auc(led_preds[vis, i], led_trues[vis, i])
                 mlflow.log_metric(f'validation/led/auc/{led_label}', auc, e)
                 aucs.append(auc)
