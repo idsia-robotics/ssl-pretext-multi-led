@@ -28,7 +28,7 @@ class VitWrapper(BaseModel):
         return out
    
     def predict_leds(self, outs, batch):
-        return outs
+        return outs.detach().cpu()
     
     def predict_pos_from_outs(self, image, out):
         bs = image.shape[0]
