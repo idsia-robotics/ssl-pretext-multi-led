@@ -11,7 +11,7 @@ class BaseModel(torch.nn.Module):
         self.task = task
         self.checkpoint_file = checkpoint_file
         self.layers = None
-        self.epsilon = torch.tensor([1e-15])
+        self.epsilon = torch.tensor([1e-10])
     
     def loss(self, y_true, y_pred):
         raise NotImplementedError()
@@ -78,6 +78,7 @@ def ModelRegistry(name):
 import src.models.fcn
 import src.models.multi_scale_fcn
 import src.models.mobile_net
+import src.models.vit
 
 def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwargs, return_run_id = False):
     runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")
