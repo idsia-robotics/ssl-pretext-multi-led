@@ -5,6 +5,8 @@ from torch.nn.functional import binary_cross_entropy as bce
 from torchvision.transforms.functional import resize, InterpolationMode
 from numpy import unravel_index, stack
 import numpy as np
+import torch.nn.functional as F
+
 
 
 class RangeRescaler(torch.nn.Module):
@@ -23,8 +25,6 @@ class RangeRescaler(torch.nn.Module):
     def __call__(self, x) -> Any:
         return (x - self.in_min) * self.gap_ratio + self.out_min
         
-
-    
 class FullyConvPredictorMixin:
 
     def __init__(self, *args, **kwargs) -> None:
@@ -106,9 +106,10 @@ class FullyConvPredictorMixin:
             return thetas, cos_scalars.detach().cpu().numpy(), sin_scalars.detach().cpu().numpy()
 
     def _predict_led_pred_pos(self, outs, batch, to_numpy= True, pos_norm=None):
-        led_maps = outs[:, 4:, ...]
+        led_maps = outs[..., 4:, :, :]
         if pos_norm is None:
-            pos_norm = outs[:, :1, ...] / torch.sum(outs[:, :1, ...], axis = (-1, -2), keepdim = True)
+            pos_map = outs[..., :1, :, :]
+            pos_norm = (pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim = True)).detach()
         masked_maps = pos_norm * led_maps
         if not to_numpy:
             return masked_maps.sum(axis = [-1, -2])
@@ -117,8 +118,8 @@ class FullyConvPredictorMixin:
         
     def _predict_led_gt_pos(self, outs, batch, to_numpy= True, pos_norm = None):
         led_maps = outs[:, 4:, ...]
-        pos_map = self.downscaler(batch["pos_map"].to(outs.device))[:, None, ...]
-        pos_map_norm = pos_map / torch.sum(pos_map, axis = (-1, -2), keepdim=True)
+        pos_map = self.downscaler(batch["pos_map"].to(outs.device))[..., None, :, :]
+        pos_map_norm = pos_map / (torch.sum(pos_map, axis = (-1, -2), keepdim=True) + self.epsilon)
         masked_maps = pos_map_norm * led_maps
 
         if not to_numpy:
@@ -293,6 +294,49 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         out[:, 1, ...] = out[:, 1, ...] * self.MAX_DIST_M
         return out
 
+@ModelRegistry("model_s_wide")
+class Model_s_wide(Model_s):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.core_layers = torch.nn.Sequential(
+            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(6),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(8),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(16),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 64, kernel_size=5, padding=6, stride=1, dilation = 3),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 64, kernel_size=5, padding=4, stride=1, dilation=2),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
+
+        )
+        self.robot_pose_and_led_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.ReLU(),
+                torch.nn.BatchNorm2d(10),
+                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+        )
+        self.forward = self.pose_and_leds_forward
+        self.loss = self._robot_pose_and_leds_loss
+
+        self.layers = torch.nn.Sequential(
+            self.core_layers,
+            self.robot_pose_and_led_layer
+        )
     
 
 @ModelRegistry("model_s_opt")
@@ -470,4 +514,3 @@ class Deep_Model_s(Model_s):
             b.to(*args, **kwargs) for b in self.deep_robot_pose_and_led_layer
         ]
         return res
-
