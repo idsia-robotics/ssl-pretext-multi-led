@@ -14,7 +14,7 @@ class VitWrapper(BaseModel):
             patch_size = 32,
             num_classes = 6,
             dim = 1024,
-            depth = 3,
+            depth = 4,
             heads = 16,
             mlp_dim = 2048
         )
