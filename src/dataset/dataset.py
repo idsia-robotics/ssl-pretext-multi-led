@@ -17,7 +17,7 @@ class H5Dataset(torch.utils.data.Dataset):
         [[0, 180], [np.inf, np.inf]],
         [[-180, -0], [np.inf, np.inf]],
     ]
-    POS_ORB_SIZE = 160
+    POS_ORB_SIZE = 20
 
     # Use this for good visibility
     # LED_VISIBILITY_RANGES_DEG = [
@@ -213,8 +213,8 @@ class H5Dataset(torch.utils.data.Dataset):
         grid = np.stack([V, U], axis = 0)
         grid -= orb_size // 2
         distances = np.linalg.norm(grid, axis = 0, ord = 2)
-        return 1 - np.tanh(.04 * distances)
-        # return distances
+        # return 1 - np.tanh(.04 * distances)
+        return distances <= orb_size / 2
 
 
     def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20, align_to = None):
@@ -223,7 +223,7 @@ class H5Dataset(torch.utils.data.Dataset):
             return np.ones(map_size)
 
         padding = orb_size
-        result = np.pad(np.zeros(map_size) + 1e-6, padding, 'constant', constant_values=0) # 440x720
+        result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0) # 440x720
         
         if proj_uvz[-1] > 0:
             u = 0
