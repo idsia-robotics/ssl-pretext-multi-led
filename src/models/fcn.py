@@ -295,6 +295,11 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         out[:, 1, ...] = out[:, 1, ...] * self.MAX_DIST_M
         return out
 
+    def to(self, *args, **kwargs):
+        res = super().to(*args, **kwargs)
+        self.downscaler = self.downscaler.to(*args, **kwargs)
+        return res
+
 @ModelRegistry("model_s_wide")
 class Model_s_wide(Model_s):
     def __init__(self, *args, **kwargs):
