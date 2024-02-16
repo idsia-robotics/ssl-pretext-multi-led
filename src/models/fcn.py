@@ -232,7 +232,7 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
         # downscaled_gt_proj_norm = downscaled_gt_proj / (downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True) + self.epsilon)
         proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
-        loss = torch.nn.functional.mse_loss(proj_pred, downscaled_gt_proj, reduction='none').mean(axis = (-1, -2, -3))
+        loss = torch.nn.functional.mse_loss(proj_pred.float(), downscaled_gt_proj.float(), reduction='none').mean(axis = (-1, -2, -3))
         # loss = 1 - (proj_pred_norm * downscaled_gt_proj).sum(axis = (-1, -2, -3))
         # loss = torch.nn.functional.mse_loss(
         #     proj_pred,
