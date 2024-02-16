@@ -23,8 +23,8 @@ def parse_args(*config):
         group = parser.add_mutually_exclusive_group()
 
         mlflow_group = group.add_argument_group()
-        mlflow_group.add_argument("--checkpoint-id", type=str)
         mlflow_group.add_argument("--run-name", type=str, default=datetime.today().isoformat())
+        mlflow_group.add_argument("--checkpoint-id", type=str)
         mlflow_group.add_argument("--run-id", type=str, default=None)
         group.add_argument("--checkpoint-path", type=str)
 
@@ -58,6 +58,8 @@ def parse_args(*config):
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
         parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
         parser.add_argument("--lr-schedule", type=str, choices=["cosine", "shark"], default='cosine')
+        mlflow_group.add_argument("--checkpoint-id", type=str)
+        mlflow_group.add_argument("--run-id", type=str, default=None)
 
 
 

@@ -1,5 +1,5 @@
 from src.config.argument_parser import parse_args
-from src.models import get_model, BaseModel
+from src.models import get_model, BaseModel, load_model_mlflow
 from src.dataset.dataset import H5Dataset, get_dataset
 import torch
 import torch.utils.data
@@ -216,8 +216,14 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
 
 def main():
     args = parse_args("train")
-    model_cls = get_model(args.model_type)
-    model = model_cls(task = args.task, led_inference = args.led_inference).to(args.device)
+
+    if args.checkpoint_id:
+        model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
+                        model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}, return_run_id=True).to(args.device)
+    else:
+        model_cls = get_model(args.model_type)
+        model = model_cls(task = args.task, led_inference = args.led_inference).to(args.device)
+
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible, compute_led_visibility=False,
                                 supervised_flagging=args.labeled_count,
