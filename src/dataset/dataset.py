@@ -17,7 +17,7 @@ class H5Dataset(torch.utils.data.Dataset):
         [[0, 180], [np.inf, np.inf]],
         [[-180, -0], [np.inf, np.inf]],
     ]
-    POS_ORB_SIZE = 60
+    POS_ORB_SIZE = 160
 
     # Use this for good visibility
     # LED_VISIBILITY_RANGES_DEG = [
