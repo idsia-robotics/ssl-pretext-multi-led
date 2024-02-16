@@ -278,6 +278,8 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         for i in range(led_preds.shape[1]):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
+        losses[:, 1] = 0.
+        losses[:, 2] = 0.
         return losses, losses.detach().mean(0)        
 
     def pose_and_leds_forward(self, x):
