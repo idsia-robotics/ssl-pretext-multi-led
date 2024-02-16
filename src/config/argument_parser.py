@@ -58,8 +58,8 @@ def parse_args(*config):
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
         parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
         parser.add_argument("--lr-schedule", type=str, choices=["cosine", "shark"], default='cosine')
-        mlflow_group.add_argument("--checkpoint-id", type=str)
-        mlflow_group.add_argument("--run-name", type=str, default=None)
+        parser.add_argument("--checkpoint-id", type=str)
+        parser.add_argument("--weights-run-name", type=str, default=None)
 
 
 

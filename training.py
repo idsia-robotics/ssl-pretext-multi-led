@@ -218,7 +218,7 @@ def main():
     args = parse_args("train")
 
     if args.checkpoint_id:
-        model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
+        model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.weights_run_name, checkpoint_idx=args.checkpoint_id,
                         model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}, return_run_id=True).to(args.device)
     else:
         model_cls = get_model(args.model_type)
