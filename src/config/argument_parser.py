@@ -59,7 +59,7 @@ def parse_args(*config):
         parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
         parser.add_argument("--lr-schedule", type=str, choices=["cosine", "shark"], default='cosine')
         mlflow_group.add_argument("--checkpoint-id", type=str)
-        mlflow_group.add_argument("--run-id", type=str, default=None)
+        mlflow_group.add_argument("--run-name", type=str, default=None)
 
 
 
