@@ -25,8 +25,8 @@
 
 import subprocess
 
-val_ds = "four_leds_validation.h5"
-train_ds = "four_leds_training.h5"
+val_ds = "four_leds_ds_validation.h5"
+train_ds = "four_leds_ds_training.h5"
 run_name = "baseline"
 epochs = 100
 task_weights = .3
