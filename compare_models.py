@@ -9,6 +9,7 @@ from src.metrics import leds_auc
 
 from src.viz.plots import sns_histplot
 import numpy as np
+from src.dataset.leds import LED_TYPES
 
 
 def main():
@@ -55,16 +56,24 @@ def main():
         (("proj_error", "theta_error", "pose_rel_err", "dist_abs_error", "pose_add_30_30"),
          ("mean","std", "50%"))
         ].rename(columns = {"50%" : "median"})
+    summary["pose_add_30_30"] *= 100
     
     aucs = df.groupby("model").apply(lambda d: leds_auc(np.stack(d["led_pred"]), np.stack(d["led_true"]))[0])
+    
+    individual_aucs = df.groupby("model").apply(lambda d: leds_auc(np.stack(d["led_pred"]), np.stack(d["led_true"]))[1])
+    raw_aucs = np.stack(individual_aucs.values)
+    individual_aucs = pd.DataFrame.from_dict({led_key: raw_aucs[:, i] for i, led_key in enumerate(LED_TYPES)})
+    individual_aucs.index = aucs.index
+
     aucs.name = "AUC"
+    individual_aucs.name = "per-led AUC"
     pose_add_10 = pd.DataFrame(summary.loc[:, (("pose_add_30_30"), ("mean"))])
 
     final = summary.loc[:, (("proj_error", "theta_error", "pose_rel_err", "dist_abs_error"), ("median"))].droplevel(1, 1).join(aucs)
     final = final.join(pose_add_10.droplevel(1,1))
 
-    lambas = list(map(lambda n: float(n.split("_")[3]), final.index.values))
-    samples = list(map(lambda n: float(n.split("_")[-1]), final.index.values))
+    lambas = df.attrs.get("w_led", list(map(lambda n: float(n.split("_")[-3]), final.index.values)))
+    samples = df.attrs.get("sample_count", list(map(lambda n: float(n.split("_")[-1]), final.index.values)))
     final["theta_error_deg"] = np.rad2deg(final["theta_error"])
     final["lambda"] = lambas
     final["samples"] = samples
@@ -92,12 +101,20 @@ def main():
     })
 
 
+
+
     f = open(out_dir / "summary_stats.csv", "w")
     f.write(summary.round(2).to_csv())
     f.close()
 
     f = open(out_dir / "summary_stats_small.csv", "w")
     f.write(final.round(2).sort_values(by="lambda").to_csv())
+    f.close()
+
+    aucs_ds = pd.concat([aucs, individual_aucs], axis = 1)
+    
+    f = open(out_dir / "led_performance.csv", "w")
+    f.write((aucs_ds * 100).round(2).to_csv())
     f.close()
 
 

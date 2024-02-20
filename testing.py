@@ -24,10 +24,11 @@ def main():
     dataloader = DataLoader(ds, batch_size = 32, shuffle = False)
 
     using_mlflow = False
+    params = None
 
     if args.checkpoint_id:
-        model, run_id = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
-                        model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}, return_run_id=True)
+        model, run_id, params = load_model_mlflow(experiment_id=args.experiment_id, mlflow_run_name=args.run_name, checkpoint_idx=args.checkpoint_id,
+                        model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}, return_run_id=True, return_run_params=True)
         using_mlflow = True
     else:
         model = load_model_raw(args.checkpoint_path, model_kwargs={'task' : args.task, 'led_inference' : args.led_inference})
@@ -130,8 +131,8 @@ def main():
     aucs = []
     for i, led_label in enumerate(H5Dataset.LED_TYPES):
         visible_mask = data["led_visibility_mask"][:, i]
-        auc = binary_auc(data["led_pred"][visible_mask, i], data["led_true"][visible_mask, i])
-        print(f"AUC for led {led_label}: {auc}")
+        auc, thr = binary_auc(data["led_pred"][visible_mask, i], data["led_true"][visible_mask, i], return_optimal_threshold=True)
+        print(f"AUC for led {led_label}: {auc}\t thr:{thr:.2f}")
 
     figures = [
         theta_scatter_plot,
@@ -177,7 +178,9 @@ def main():
     if args.inference_dump:
         for k in data.keys():
             data[k] = data[k].tolist()
-        pd.DataFrame(data).to_pickle(args.inference_dump)
+        df = pd.DataFrame(data)
+        df.attrs = params
+        df.to_pickle(args.inference_dump)
 
 
 
