@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 import torch
-from mlflow import get_experiment_by_name, search_runs, log_artifact, start_run
+from mlflow import get_experiment_by_name, search_runs, log_artifact, get_run
 from mlflow.artifacts import download_artifacts
 
 class BaseModel(torch.nn.Module):
@@ -103,7 +103,7 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwar
         if return_run_id:
             result.append(run_id)
         if return_run_params:
-            with start_run(run_id=run_id) as mlflow_run:
+            with get_run(run_id=run_id) as mlflow_run:
                 result.append(mlflow_run.data.params)
         return result
     elif len(runs) == 0:
