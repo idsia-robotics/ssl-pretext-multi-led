@@ -29,7 +29,7 @@ def parse_args(*config):
         group.add_argument("--checkpoint-path", type=str)
 
         parser.add_argument("--inference-dump", default=None, type=Path)
-        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"], default = "amax")
+        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax", "mean"], default = "amax")
 
 
     if 'vis' in config:
@@ -56,7 +56,7 @@ def parse_args(*config):
         parser.add_argument("--w-led", default=.25, type = float)
         parser.add_argument("--labeled-count", default = None, type=int)
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
-        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax"])
+        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax", "mean"])
         parser.add_argument("--lr-schedule", type=str, choices=["cosine", "shark"], default='cosine')
         parser.add_argument("--checkpoint-id", type=str)
         parser.add_argument("--weights-run-name", type=str, default=None)
