@@ -80,7 +80,9 @@ import src.models.multi_scale_fcn
 import src.models.mobile_net
 import src.models.vit
 
-def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwargs, return_run_id = False):
+def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwargs, return_run_id = False,
+                      return_run_params = False):
+    result = []
     runs = search_runs([experiment_id], filter_string=f"params.run_name = '{mlflow_run_name}'")
     if len(runs) == 1:
         run = runs.iloc[0]
@@ -96,10 +98,12 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwar
             checkpoint = torch.load(checkpoint_path)
         model = get_model(checkpoint["model_name"])(**model_kwargs)
         model.load_from_checkpoint(checkpoint)
+        result.append(model)
         if return_run_id:
-            return model, run_id
-        else:
-            return model
+            result.append(run_id)
+        if return_run_params:
+            result.append(run['params'])
+        return result
     elif len(runs) == 0:
         raise ValueError(f"Could not find run with experiment id {experiment_id} and name {mlflow_run_name}")
     else:
