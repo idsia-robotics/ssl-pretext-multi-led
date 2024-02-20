@@ -103,8 +103,8 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwar
         if return_run_id:
             result.append(run_id)
         if return_run_params:
-            with get_run(run_id=run_id) as mlflow_run:
-                result.append(mlflow_run.data.params)
+            mlflow_run = get_run(run_id=run_id)
+            result.append(mlflow_run.data.params)
         return result
     elif len(runs) == 0:
         raise ValueError(f"Could not find run with experiment id {experiment_id} and name {mlflow_run_name}")
