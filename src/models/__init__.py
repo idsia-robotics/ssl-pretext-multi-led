@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 import torch
-from mlflow import get_experiment_by_name, search_runs, log_artifact
+from mlflow import get_experiment_by_name, search_runs, log_artifact, start_run
 from mlflow.artifacts import download_artifacts
 
 class BaseModel(torch.nn.Module):
@@ -91,6 +91,7 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwar
         checkpoint_path = download_artifacts(run_id=run_id,
                                              artifact_path=f"checkpoint_{checkpoint_idx}.tar",
                                              dst_path="/tmp/.checkpoints")
+            
         checkpoint_path = Path(checkpoint_path)
         if not torch.cuda.is_available():
             checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
@@ -102,7 +103,8 @@ def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwar
         if return_run_id:
             result.append(run_id)
         if return_run_params:
-            result.append(run['params'])
+            with start_run(run_id=run_id) as mlflow_run:
+                result.append(mlflow_run.data.params)
         return result
     elif len(runs) == 0:
         raise ValueError(f"Could not find run with experiment id {experiment_id} and name {mlflow_run_name}")
