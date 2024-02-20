@@ -62,7 +62,23 @@ class FullyConvPredictorMixin:
         x_scale_f = image.shape[1] / out_map_shape[1]
         indexes += np.array([x_scale_f, y_scale_f]) / 2
         return indexes.astype(np.int32)
-    
+
+        # outs = outs[:, :1, ...].detach()
+        # maxs = outs.flatten(-2).max(-1).values
+        # thr = maxs * .99
+        # outs = (outs > thr[..., None, None]) * outs
+        # ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
+        # coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
+        # reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
+        # total_mass = torch.sum(reshaped_maps, axis = 1)
+        # centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
+
+        indexes = stack([centre_of_mass[:, 1], centre_of_mass[:, 0]]).T.astype('float32')
+        indexes /= np.array([out_map_shape[1], out_map_shape[0]])
+        indexes *= np.array([image.shape[-1], image.shape[-2]])
+
+        return indexes.astype(np.int32)
+
     def predict_pos(self, image):
         outs = self(image)
         return self.predict_pos_from_outs(image, outs)
@@ -200,10 +216,37 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
                 self.core_layers,
                 self.robot_pose_and_led_layer
             )
-            self.MAX_DIST_M = 5.
-        self.downscaler = torch.nn.AvgPool2d(8)
+        elif self.task == 'tuning':
+            self.robot_pose_and_led_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.ReLU(),
+                torch.nn.BatchNorm2d(10),
+                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+            )
+            self.forward = self.pose_and_leds_forward
+            self.loss = self._robot_pose_loss
 
-        
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+                self.robot_pose_and_led_layer
+            )
+
+        self.MAX_DIST_M = 5.
+        self.downscaler = torch.nn.AvgPool2d(8)
+            
+    
+
+    def optimizer(self, learning_rate):
+        if not self.task == 'tuning':
+            return super().optimizer(learning_rate)
+        else:
+            print("Returning freezed optimizer")
+            opt = torch.optim.Adam([
+                {"params" : self.core_layers.parameters(), "lr" : learning_rate / 1000},
+                {"params" : self.robot_pose_and_led_layer.parameters(), "lr" : learning_rate}
+            ])
+            return opt
+
     def _robot_pose_and_leds_loss(self, batch, model_out):
         supervised_label = batch["supervised_flag"].to(model_out.device)
 
@@ -224,6 +267,24 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
             led_loss, led_losses       
     
+    def _robot_pose_loss(self, batch, model_out):
+
+        proj_loss, proj_map_norm = self._robot_projection_loss(batch, model_out, return_norm=True)
+        dist_loss = self._robot_distance_loss(batch, model_out, proj_map_norm)
+        orientation_loss = self._robot_orientation_loss(batch, model_out, proj_map_norm)
+
+        
+        led_loss = torch.zeros(model_out.shape[0], 1, requires_grad=True)
+        led_losses = torch.zeros(6)
+
+        proj_loss_norm = proj_loss
+        dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2)
+        ori_loss_norm = (orientation_loss / 4)
+        
+        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
+            led_loss, led_losses       
+    
+
     def _robot_projection_loss(self, batch, model_out : torch.Tensor, return_norm = False):
         proj_pred = self.predict_pos_from_outs(
             image = batch["image"].to(model_out.device),
