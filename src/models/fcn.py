@@ -215,7 +215,7 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
 
         unsupervised_label = ~supervised_label
         
-        led_loss = led_loss.mean(-1) * unsupervised_label
+        led_loss = (led_loss.mean(-1) * (3/2)) * unsupervised_label
 
         proj_loss_norm = proj_loss * supervised_label
         dist_loss_norm = (dist_loss / self.MAX_DIST_M ** 2) * supervised_label
@@ -307,18 +307,18 @@ class Model_s_wide(Model_s):
         super().__init__(*args, **kwargs)
 
         self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(6),
+            torch.nn.Conv2d(3, 12, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(12),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(8),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1),
-            torch.nn.BatchNorm2d(16),
+            torch.nn.Conv2d(12, 24, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(24),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.Conv2d(24, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(2),
@@ -333,9 +333,10 @@ class Model_s_wide(Model_s):
         )
         self.robot_pose_and_led_layer = torch.nn.Sequential(
                 torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
-                torch.nn.ReLU(),
                 torch.nn.BatchNorm2d(10),
+                torch.nn.ReLU(),
                 torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.BatchNorm2d(10)
         )
         self.forward = self.pose_and_leds_forward
         self.loss = self._robot_pose_and_leds_loss
