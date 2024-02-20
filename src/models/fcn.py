@@ -39,6 +39,8 @@ class FullyConvPredictorMixin:
             self.predict_leds = self._predict_led_hybrid
         elif self.led_inference == 'amax':
             self.predict_leds = self._predict_led_amax
+        elif self.led_inference == "mean":
+            self.predict_leds = self._predict_led_mean
         else:
             raise NotImplementedError("Invalid led inference mode")
         self.downscaler = torch.nn.AvgPool2d(8)
@@ -161,6 +163,14 @@ class FullyConvPredictorMixin:
     def _predict_led_amax(self, outs, batch, to_numpy= True, pos_norm = None):
         led_maps = outs[:, 4:, ...]
         preds = torch.amax(led_maps, dim = (-1, -2))
+        if not to_numpy:
+            return preds
+        else:
+            return preds.detach().cpu().numpy()
+        
+    def _predict_led_mean(self, outs, batch, to_numpy= True, pos_norm = None):
+        led_maps = outs[:, 4:, ...]
+        preds = torch.mean(led_maps, dim = (-1, -2))
         if not to_numpy:
             return preds
         else:
