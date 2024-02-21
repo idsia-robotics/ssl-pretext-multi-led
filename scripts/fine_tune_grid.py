@@ -43,7 +43,7 @@ python3.11 -m training -d data/{train_ds} -t {task} \
 --device {device} -a \
 --epochs 100 --learning-rate 0.001 -v data/{val_ds} \
 --w-proj .3 --w-dist .3 --w-ori .3 --w-led 0 \
---model-type {model} --visible"""
+--model-type {model} --visible --led-inference amax"""
         
         if count is not None:
             cmd += f" -c {count} -cseed 0"
