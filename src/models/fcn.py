@@ -261,10 +261,10 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
     def _robot_pose_and_leds_loss(self, batch, model_out):
         supervised_label = batch["supervised_flag"].to(model_out.device)
 
-        proj_loss, proj_map_norm = self._robot_projection_loss(batch, model_out, return_norm=True)
-        dist_loss = self._robot_distance_loss(batch, model_out, proj_map_norm)
+        proj_loss, proj_map_norm = self._robot_projection_loss(batch, model_out, return_norm=True, detach_norm=False)
+        dist_loss = self._robot_distance_loss(batch, model_out, proj_map_norm.detach())
         
-        orientation_loss = self._robot_orientation_loss(batch, model_out, proj_map_norm)
+        orientation_loss = self._robot_orientation_loss(batch, model_out, proj_map_norm.detach())
         led_loss, led_losses = self._robot_led_loss(batch, model_out, proj_map_norm)
 
         unsupervised_label = ~supervised_label
