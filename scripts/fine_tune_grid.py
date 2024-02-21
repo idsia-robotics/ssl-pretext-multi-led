@@ -46,7 +46,12 @@ python3.11 -m training -d data/{train_ds} -t {task} \
 --model-type {model} --visible"""
         
         if count is not None:
-            cmd += " -c {count} -cseed 0"
+            cmd += f" -c {count} -cseed 0"
+
+        if using_pre_trained:
+            cmd += f" --checkpoint-id 99 --weights-run-name {pre_trained_name}"
+        print(cmd)
+        continue
         subprocess.run(cmd.strip().split(' '))
 
         testing_cmd = f"""
