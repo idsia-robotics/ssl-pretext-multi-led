@@ -52,28 +52,28 @@ class FullyConvPredictorMixin:
             return outs
 
         out_map_shape = outs.shape[-2:]
-        outs = outs.view(outs.shape[0], -1)
-        max_idx = outs.argmax(1).cpu()
-        indexes = unravel_index(max_idx, out_map_shape)
-        #               x               y
-        indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
-        indexes /= np.array([out_map_shape[1], out_map_shape[0]])
-        indexes *= np.array([image.shape[-1], image.shape[-2]])
+        # outs = outs.view(outs.shape[0], -1)
+        # max_idx = outs.argmax(1).cpu()
+        # indexes = unravel_index(max_idx, out_map_shape)
+        # #               x               y
+        # indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
+        # indexes /= np.array([out_map_shape[1], out_map_shape[0]])
+        # indexes *= np.array([image.shape[-1], image.shape[-2]])
 
-        y_scale_f = image.shape[0] / out_map_shape[0]
-        x_scale_f = image.shape[1] / out_map_shape[1]
-        indexes += np.array([x_scale_f, y_scale_f]) / 2
-        return indexes.astype(np.int32)
+        # y_scale_f = image.shape[0] / out_map_shape[0]
+        # x_scale_f = image.shape[1] / out_map_shape[1]
+        # indexes += np.array([x_scale_f, y_scale_f]) / 2
+        # return indexes.astype(np.int32)
 
-        # outs = outs[:, :1, ...].detach()
-        # maxs = outs.flatten(-2).max(-1).values
-        # thr = maxs * .99
-        # outs = (outs > thr[..., None, None]) * outs
-        # ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
-        # coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
-        # reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
-        # total_mass = torch.sum(reshaped_maps, axis = 1)
-        # centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
+        outs = outs[:, :1, ...].detach()
+        maxs = outs.flatten(-2).max(-1).values
+        thr = maxs * .99
+        outs = (outs > thr[..., None, None]) * outs
+        ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
+        coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
+        reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
+        total_mass = torch.sum(reshaped_maps, axis = 1)
+        centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
 
         indexes = stack([centre_of_mass[:, 1], centre_of_mass[:, 0]]).T.astype('float32')
         indexes /= np.array([out_map_shape[1], out_map_shape[0]])
@@ -170,8 +170,9 @@ class FullyConvPredictorMixin:
         
     def _predict_led_mean(self, outs, batch, to_numpy= True, pos_norm = None):
         led_maps = outs[:, 4:, ...]
-        led_maps = torch.pow(led_maps * 2 - 1, 3)
-        preds = (torch.mean(led_maps, dim = (-1, -2)) + 1) / 2
+        # led_maps = torch.pow(led_maps * 2 - 1, 3)
+        # preds = (torch.mean(led_maps, dim = (-1, -2)) + 1) / 2
+        preds = torch.mean(led_maps, dim = (-1, -2))
         if not to_numpy:
             return preds
         else:
@@ -222,6 +223,20 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
             )
             self.forward = self.pose_and_leds_forward
             self.loss = self._robot_pose_and_leds_loss
+
+            self.layers = torch.nn.Sequential(
+                self.core_layers,
+                self.robot_pose_and_led_layer
+            )
+        elif self.task == 'pretext':
+            self.robot_pose_and_led_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.ReLU(),
+                torch.nn.BatchNorm2d(10),
+                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+            )
+            self.forward = self.pose_and_leds_forward
+            self.loss = self._robot_pretext_loss
 
             self.layers = torch.nn.Sequential(
                 self.core_layers,
@@ -278,6 +293,21 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
             led_loss, led_losses       
     
+    def _robot_pretext_loss(self, batch, model_out):
+        proj_map_norm = model_out[..., :1, :, :]
+        proj_map_norm = proj_map_norm / (torch.sum(proj_map_norm, dim = (-1, -2), keepdim=True) + self.epsilon)
+
+        led_loss, led_losses = self._robot_led_loss(batch, model_out, proj_map_norm)
+
+        
+        led_loss = (led_loss.mean(-1) * (3/2))
+        proj_loss_norm = torch.zeros_like(led_loss, requires_grad=True)
+        dist_loss_norm = torch.zeros_like(led_loss, requires_grad=True)
+        ori_loss_norm = torch.zeros_like(led_loss, requires_grad=True)
+
+        return proj_loss_norm, dist_loss_norm, ori_loss_norm,\
+            led_loss, led_losses       
+
     def _robot_pose_loss(self, batch, model_out):
 
         proj_loss, proj_map_norm = self._robot_projection_loss(batch, model_out, return_norm=True)
@@ -414,7 +444,7 @@ class Model_s_wide(Model_s):
                 torch.nn.BatchNorm2d(10)
         )
         self.forward = self.pose_and_leds_forward
-        self.loss = self._robot_pose_and_leds_loss
+        # self.loss = self._robot_pose_and_leds_loss
 
         self.layers = torch.nn.Sequential(
             self.core_layers,
