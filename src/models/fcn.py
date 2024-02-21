@@ -170,6 +170,7 @@ class FullyConvPredictorMixin:
         
     def _predict_led_mean(self, outs, batch, to_numpy= True, pos_norm = None):
         led_maps = outs[:, 4:, ...]
+        led_maps = torch.pow(led_maps * 2 - 1, 3)
         preds = torch.mean(led_maps, dim = (-1, -2))
         if not to_numpy:
             return preds
@@ -295,7 +296,7 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
             led_loss, led_losses       
     
 
-    def _robot_projection_loss(self, batch, model_out : torch.Tensor, return_norm = False):
+    def _robot_projection_loss(self, batch, model_out : torch.Tensor, return_norm = False, detach_norm = True):
         proj_pred = self.predict_pos_from_outs(
             image = batch["image"].to(model_out.device),
             outs=model_out,
@@ -312,7 +313,10 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         #     reduction='none'
         # ).mean(dim = (-1, -2))
         if return_norm:
-            return loss, proj_pred_norm.detach()
+            if detach_norm:
+                return loss, proj_pred_norm.detach()
+            else:
+                return loss, proj_pred_norm
         else:
             return loss
         
