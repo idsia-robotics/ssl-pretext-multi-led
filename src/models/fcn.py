@@ -52,34 +52,34 @@ class FullyConvPredictorMixin:
             return outs
 
         out_map_shape = outs.shape[-2:]
-        # outs = outs.view(outs.shape[0], -1)
-        # max_idx = outs.argmax(1).cpu()
-        # indexes = unravel_index(max_idx, out_map_shape)
-        # #               x               y
-        # indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
-        # indexes /= np.array([out_map_shape[1], out_map_shape[0]])
-        # indexes *= np.array([image.shape[-1], image.shape[-2]])
-
-        # y_scale_f = image.shape[0] / out_map_shape[0]
-        # x_scale_f = image.shape[1] / out_map_shape[1]
-        # indexes += np.array([x_scale_f, y_scale_f]) / 2
-        # return indexes.astype(np.int32)
-
-        outs = outs[:, :1, ...].detach()
-        maxs = outs.flatten(-2).max(-1).values
-        thr = maxs * .99
-        outs = (outs > thr[..., None, None]) * outs
-        ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
-        coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
-        reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
-        total_mass = torch.sum(reshaped_maps, axis = 1)
-        centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
-
-        indexes = stack([centre_of_mass[:, 1], centre_of_mass[:, 0]]).T.astype('float32')
+        outs = outs.view(outs.shape[0], -1)
+        max_idx = outs.argmax(1).cpu()
+        indexes = unravel_index(max_idx, out_map_shape)
+        #               x               y
+        indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
         indexes /= np.array([out_map_shape[1], out_map_shape[0]])
         indexes *= np.array([image.shape[-1], image.shape[-2]])
 
+        y_scale_f = image.shape[0] / out_map_shape[0]
+        x_scale_f = image.shape[1] / out_map_shape[1]
+        indexes += np.array([x_scale_f, y_scale_f]) / 2
         return indexes.astype(np.int32)
+
+        # outs = outs[:, :1, ...].detach()
+        # maxs = outs.flatten(-2).max(-1).values
+        # thr = maxs * .99
+        # outs = (outs > thr[..., None, None]) * outs
+        # ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
+        # coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
+        # reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
+        # total_mass = torch.sum(reshaped_maps, axis = 1)
+        # centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
+
+        # indexes = stack([centre_of_mass[:, 1], centre_of_mass[:, 0]]).T.astype('float32')
+        # indexes /= np.array([out_map_shape[1], out_map_shape[0]])
+        # indexes *= np.array([image.shape[-1], image.shape[-2]])
+
+        # return indexes.astype(np.int32)
 
     def predict_pos(self, image):
         outs = self(image)
@@ -260,19 +260,6 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         self.MAX_DIST_M = 5.
         self.downscaler = torch.nn.AvgPool2d(8)
             
-    
-
-    def optimizer(self, learning_rate):
-        if not self.task == 'tuning':
-            return super().optimizer(learning_rate)
-        else:
-            print("Returning freezed optimizer")
-            opt = torch.optim.Adam([
-                {"params" : self.core_layers.parameters(), "lr" : learning_rate / 1000},
-                {"params" : self.robot_pose_and_led_layer.parameters(), "lr" : learning_rate}
-            ])
-            return opt
-
     def _robot_pose_and_leds_loss(self, batch, model_out):
         supervised_label = batch["supervised_flag"].to(model_out.device)
 
