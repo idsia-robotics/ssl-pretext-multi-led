@@ -49,7 +49,7 @@ image_to_base = camera_to_base
 
 
 K = np.array([305.86615474,   0.0, 313.32092337,  0.0, 307.25209474, 183.31037687,  0.0,0.0,   1.0]).reshape(3,3)
-P = np.zeros(3, 4)
+P = np.zeros((3, 4))
 P[:, :-1] = K
 
 # K = np.array([
