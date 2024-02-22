@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime
 from numpy import Inf
 
+
 def parse_args(*config):
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dataset', type=str, help='filename of the dataset',
@@ -15,6 +16,8 @@ def parse_args(*config):
     parser.add_argument("-c", "--sample-count", type=int, default=None)
     parser.add_argument("-cseed", "--sample-count-seed", type=int, default=None)
     parser.add_argument("--visible", action='store_true')
+    parser.add_argument("--non-visible-perc", type = float, default = 0.)
+
     parser.add_argument("--experiment-id", type=str, default=None)
     parser.add_argument("-t", "--task", type=str)
     parser.add_argument("--dist-range", type=float, nargs="+", default = [-Inf, Inf])

@@ -39,7 +39,8 @@ class H5Dataset(torch.utils.data.Dataset):
                  compute_led_visibility = False,
                  supervised_flagging = None,
                  supervised_flagging_seed = None,
-                 distance_range = None):
+                 distance_range = None,
+                 non_visible_robots_perc = 0.):
         
         filename = Path(filename)
         if not filename.is_file():
@@ -108,7 +109,16 @@ class H5Dataset(torch.utils.data.Dataset):
         
         
         if only_visible_robots:
-            self.valid_ds_indexes = np.where(self.visibility_mask & distance_mask)[0]
+            non_vis_count = non_visible_robots_perc * (~self.visibility_mask).sum()
+            non_vis_idx = np.random.choice(
+                np.where(~self.visibility_mask)[0],
+                size=int(non_vis_count)
+            )
+            self.valid_ds_indexes = np.concatenate(
+                [
+                    np.where(self.visibility_mask & distance_mask)[0],
+                    non_vis_idx
+                ])
         else:
             self.valid_ds_indexes = np.where(distance_mask)[0]
 
@@ -248,7 +258,8 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                 compute_led_visibility = False,
                 supervised_flagging = None,
                 supervised_flagging_seed = None,
-                distance_range = None):
+                distance_range = None,
+                non_visible_perc = 0.):
     
     transform = lambda x: x
     if augmentations:
@@ -261,6 +272,10 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                brightness=.4,
                hue=.2
            )]
+        )
+    else:
+        transform = torchvision.transforms.Compose([
+            GunHider(),]
         )
 
     camera_robot_id_int = None
@@ -275,7 +290,8 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                         compute_led_visibility = compute_led_visibility,
                         supervised_flagging=supervised_flagging,
                         supervised_flagging_seed=supervised_flagging_seed,
-                        distance_range = distance_range)
+                        distance_range = distance_range,
+                        non_visible_robots_perc=non_visible_perc)
 
     mask = torch.ones(len(dataset), dtype=torch.bool)
     
@@ -288,15 +304,15 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("../robomaster_led/test_new_policy_3.h5")
-    dataloader = DataLoader(dataset, batch_size = 1, shuffle = False)
+    dataset = H5Dataset("../robomaster_led/real_four_ds_validation.h5")
+    dataloader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers=8)
     counts = {}
     start_time = time()
     visible_robots = 0
     for batch in iter(dataloader):
         for k in batch.keys():
-            counts[k] = counts.get(k, 0) + 1
-        visible_robots += batch['robot_visible'][0].cpu().int()
+            counts[k] = counts.get(k, 0) + batch[k].shape[0]
+        visible_robots += batch['robot_visible'].squeeze().sum().cpu()
     elapsed = time() - start_time
     print(f"Read whole dataset in {elapsed:.2f} seconds")
     print(counts)
