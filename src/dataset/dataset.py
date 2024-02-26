@@ -294,11 +294,14 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                         non_visible_robots_perc=non_visible_perc)
 
     mask = torch.ones(len(dataset), dtype=torch.bool)
+    valid_indexes = dataset.valid_ds_indexes.sort()
 
-    rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][dataset.valid_ds_indexes].tolist()))
+    assert mask.shape[0] == valid_indexes.shape[0]
+
+    rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][valid_indexes].tolist()))
     tl_str = map(lambda x: f"{x}_led_tl", rid)
     tr_str = map(lambda x: f"{x}_led_tr", rid)
-    for j, (i, tl, tr) in enumerate(zip(dataset.valid_ds_indexes, tl_str, tr_str)):
+    for j, (i, tl, tr) in enumerate(zip(valid_indexes, tl_str, tr_str)):
         mask[j] = torch.tensor([dataset.data[tl][i] == dataset.data[tr][i]], dtype=torch.bool)
 
     return torch.utils.data.Subset(dataset, torch.arange(len(dataset))[mask])
