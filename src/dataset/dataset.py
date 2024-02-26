@@ -296,7 +296,7 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     mask = torch.ones(len(dataset), dtype=torch.bool)
     valid_indexes = sorted(dataset.valid_ds_indexes)
 
-    assert mask.shape[0] == valid_indexes.shape[0]
+    assert mask.shape[0] == len(valid_indexes)
 
     rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][valid_indexes].tolist()))
     tl_str = map(lambda x: f"{x}_led_tl", rid)
