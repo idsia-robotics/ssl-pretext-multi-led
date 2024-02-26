@@ -287,7 +287,7 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         led_loss, led_losses = self._robot_led_loss(batch, model_out, proj_map_norm)
 
         
-        led_loss = (led_loss.mean(-1) * (3/2))
+        led_loss = (led_loss.mean(-1) * (3))
         proj_loss_norm = torch.zeros_like(led_loss, requires_grad=True)
         dist_loss_norm = torch.zeros_like(led_loss, requires_grad=True)
         ori_loss_norm = torch.zeros_like(led_loss, requires_grad=True)
@@ -371,8 +371,9 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
         for i in range(led_preds.shape[1]):
             losses[:, i] = torch.nn.functional.binary_cross_entropy(
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
-        losses[:, 1] = 0.
-        losses[:, 2] = 0.
+        # losses[:, 1] = 0.
+        # losses[:, 2] = 0.
+        losses[:, :-2] = 0.
         return losses, losses.detach().mean(0)        
 
     def pose_and_leds_forward(self, x):
