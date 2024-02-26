@@ -40,7 +40,8 @@ class H5Dataset(torch.utils.data.Dataset):
                  supervised_flagging = None,
                  supervised_flagging_seed = None,
                  distance_range = None,
-                 non_visible_robots_perc = 0.):
+                 non_visible_robots_perc = 0.,
+                 exclude_labeled = False):
         
         filename = Path(filename)
         if not filename.is_file():
@@ -149,7 +150,9 @@ class H5Dataset(torch.utils.data.Dataset):
                                                        replace=False)
             self.supervised_mask = np.zeros_like(self.data["robot_id"], dtype=bool)
             self.supervised_mask[supervised_indexes.tolist()] = True
-            
+
+            # if exclude_labeled:
+                # self.valid_ds_indexes = np.delete(self.valid_ds_indexes, self.supervised_mask[self.valid_ds_indexes])
 
     def __getitem__(self, slice):
         slice = self.valid_ds_indexes[slice]
@@ -259,7 +262,8 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                 supervised_flagging = None,
                 supervised_flagging_seed = None,
                 distance_range = None,
-                non_visible_perc = 0.):
+                non_visible_perc = 0.,
+                exclude_labeled = False):
     
     transform = lambda x: x
     if augmentations:
@@ -291,18 +295,19 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                         supervised_flagging=supervised_flagging,
                         supervised_flagging_seed=supervised_flagging_seed,
                         distance_range = distance_range,
-                        non_visible_robots_perc=non_visible_perc)
+                        non_visible_robots_perc=non_visible_perc,
+                        exclude_labeled=exclude_labeled)
 
     mask = torch.ones(len(dataset), dtype=torch.bool)
     valid_indexes = sorted(dataset.valid_ds_indexes)
 
     assert mask.shape[0] == len(valid_indexes)
 
-    rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][valid_indexes].tolist()))
-    tl_str = map(lambda x: f"{x}_led_tl", rid)
-    tr_str = map(lambda x: f"{x}_led_tr", rid)
-    for j, (i, tl, tr) in enumerate(zip(valid_indexes, tl_str, tr_str)):
-        mask[j] = torch.tensor([dataset.data[tl][i] == dataset.data[tr][i]], dtype=torch.bool)
+    # rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][valid_indexes].tolist()))
+    # tl_str = map(lambda x: f"{x}_led_tl", rid)
+    # tr_str = map(lambda x: f"{x}_led_tr", rid)
+    # for j, (i, tl, tr) in enumerate(zip(valid_indexes, tl_str, tr_str)):
+        # mask[j] = torch.tensor([dataset.data[tl][i] == dataset.data[tr][i]], dtype=torch.bool)
 
     return torch.utils.data.Subset(dataset, torch.arange(len(dataset))[mask])
 
@@ -312,7 +317,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = H5Dataset("../robomaster_led/real_four_ds_validation.h5")
+    dataset = get_dataset("../robomaster_led/real_four_ds_training.h5", only_visible_robots=True)
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers=8)
     counts = {}
     start_time = time()
