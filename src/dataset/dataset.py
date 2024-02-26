@@ -294,7 +294,6 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
                         non_visible_robots_perc=non_visible_perc)
 
     mask = torch.ones(len(dataset), dtype=torch.bool)
-    breakpoint()
     valid_indexes = sorted(dataset.valid_ds_indexes)
 
     assert mask.shape[0] == valid_indexes.shape[0]
