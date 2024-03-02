@@ -303,11 +303,11 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
 
     assert mask.shape[0] == len(valid_indexes)
 
-    # rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][valid_indexes].tolist()))
-    # tl_str = map(lambda x: f"{x}_led_tl", rid)
-    # tr_str = map(lambda x: f"{x}_led_tr", rid)
-    # for j, (i, tl, tr) in enumerate(zip(valid_indexes, tl_str, tr_str)):
-        # mask[j] = torch.tensor([dataset.data[tl][i] == dataset.data[tr][i]], dtype=torch.bool)
+#    rid = list(map(lambda x: "RM2" if x == 6 else "RM6", dataset.data["robot_id"][valid_indexes].tolist()))
+#    tl_str = map(lambda x: f"{x}_led_tl", rid)
+#    tr_str = map(lambda x: f"{x}_led_tr", rid)
+#    for j, (i, tl, tr) in enumerate(zip(valid_indexes, tl_str, tr_str)):
+#        mask[j] = torch.tensor([dataset.data[tl][i] == dataset.data[tr][i]], dtype=torch.bool)
 
     return torch.utils.data.Subset(dataset, torch.arange(len(dataset))[mask])
 
