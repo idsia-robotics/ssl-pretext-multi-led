@@ -317,7 +317,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = get_dataset("../robomaster_led/real_four_ds_training.h5", only_visible_robots=True)
+    dataset = get_dataset("../robomaster_led/real_four_ds_training.h5")
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers=8)
     counts = {}
     start_time = time()
