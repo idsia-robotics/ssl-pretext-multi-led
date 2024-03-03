@@ -28,7 +28,7 @@ class ResnetCAMWrapper(BaseModel):
         ]
         self.model = MobileNetV2(num_classes=6, inverted_residual_setting=self.configs)
         target_layers = [self.model.features[-1][0]]
-        self.cam = AblationCAM(self.model, target_layers=target_layers)
+        # self.cam = AblationCAM(self.model, target_layers=target_layers)
 
     
     def forward(self, x):
