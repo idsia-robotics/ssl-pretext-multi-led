@@ -14,3 +14,4 @@ git+https://github.com/nicholas-carlotti/torch-scan
 opencv-python==4.9.0.80
 seaborn==0.12.2
 vit-pytorch==1.6.5
+grad-cam==1.5.0
