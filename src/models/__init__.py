@@ -79,6 +79,7 @@ import src.models.fcn
 import src.models.multi_scale_fcn
 import src.models.mobile_net
 import src.models.vit
+import src.models.resnet
 
 def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwargs, return_run_id = False,
                       return_run_params = False):
