@@ -12,6 +12,7 @@ class BaseModel(torch.nn.Module):
         self.checkpoint_file = checkpoint_file
         self.layers = None
         self.epsilon = torch.tensor([1e-10])
+        self.MAX_DIST_M = 5.
     
     def loss(self, y_true, y_pred):
         raise NotImplementedError()
@@ -80,6 +81,7 @@ import src.models.multi_scale_fcn
 import src.models.mobile_net
 import src.models.vit
 import src.models.resnet
+import src.models.clip
 
 def load_model_mlflow(mlflow_run_name, experiment_id, checkpoint_idx, model_kwargs, return_run_id = False,
                       return_run_params = False):
