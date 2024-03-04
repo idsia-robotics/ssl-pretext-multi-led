@@ -17,6 +17,7 @@ class ResnetCAMWrapper(BaseModel):
 
     def __init__(self, *args, **kwargs) -> None:
         kwargs.pop('led_inference')
+        use_cam = kwargs.pop("cam", False)
         # kwargs.pop('task')
 
         super().__init__(*args, **kwargs)
@@ -28,8 +29,11 @@ class ResnetCAMWrapper(BaseModel):
         ]
         self.model = MobileNetV2(num_classes=6, inverted_residual_setting=self.configs)
         target_layers = [self.model.features[-1][0]]
-        # self.cam = AblationCAM(self.model, target_layers=target_layers)
 
+        if use_cam:
+            self.cam = AblationCAM(self.model, target_layers=target_layers)
+        else:
+            self.cam = None
     
     def forward(self, x):
         return torch.nn.functional.sigmoid(self.model(x))
@@ -52,6 +56,9 @@ class ResnetCAMWrapper(BaseModel):
         return out
     
     def predict_pos(self, images):
+        breakpoint()
+        if not self.cam:
+            raise ValueError("Model was not instantiated for pos inference")
         led_ids = [0, 3, 4, 5]
         coords = np.zeros((images.shape[0], 4, 2))
 
@@ -80,6 +87,17 @@ class ResnetCAMWrapper(BaseModel):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)            
 
 
+    def save_checkpoint(self, path, **kwargs):
+        torch.save({
+            'mobile_net_weights' : self.model.state_dict(),
+            'model_name' : self.model_name,
+            **kwargs
+        },
+        path)
+
+    def load_from_checkpoint(self, data):
+        self.model.load_state_dict(data["mobile_net_weights"])
+        return data
 
 
 
