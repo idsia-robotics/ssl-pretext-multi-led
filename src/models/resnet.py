@@ -56,7 +56,6 @@ class ResnetCAMWrapper(BaseModel):
         return out
     
     def predict_pos(self, images):
-        breakpoint()
         if not self.cam:
             raise ValueError("Model was not instantiated for pos inference")
         led_ids = [0, 3, 4, 5]
