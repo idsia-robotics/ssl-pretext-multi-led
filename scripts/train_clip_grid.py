@@ -12,10 +12,11 @@ def main():
 
     params = OrderedDict({
         'replicas' : ["1", "2", "3"],
+        "count" : [1000,]
     })
 
     for comb in product(*params.values()):
-        rpl = comb
+        rpl, count = comb
         run_name = f"clip_pose_rpl{rpl}"
 
         cmd = f"""
@@ -24,7 +25,7 @@ python3.11 -m train_clip_baseline -d data/{train_ds} -t pose_and_led \
 --device {device} -a \
 --epochs 100 --learning-rate 0.001 -v data/{val_ds} \
 --w-proj .3 --w-dist .3 --w-ori .3 --w-led 0. \
---visible --led-inference amax"""
+--visible --led-inference amax -c {count} -cseed 0"""
         
         subprocess.run(cmd.strip().split(' '))
 
