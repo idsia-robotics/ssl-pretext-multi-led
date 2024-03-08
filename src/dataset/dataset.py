@@ -5,7 +5,7 @@ import numpy as np
 import torchvision
 from src.dataset.augmentations import RandomRotTranslTransform, SimplexNoiseTransform, RandomHorizontalFlip, ColorJitterAugmentation, GrayScaleAugmentation, GunHider
 from src.dataset.leds import compute_led_visibility
-
+from scipy.spatial.transform.rotation import Rotation as R
 
 class H5Dataset(torch.utils.data.Dataset):
     LED_TYPES = ["bb", "bl", "br", "bf", "tl", "tr"]
@@ -187,6 +187,17 @@ class H5Dataset(torch.utils.data.Dataset):
         batch["robot_id"] = slice_robot_id
 
         batch["supervised_flag"] = self.supervised_mask[slice]
+
+        camera_pose = self.data['RM' + str(slice_robot_id) + "_camera_pose"][slice]
+        camera_pos = camera_pose[:3]
+        camera_ori = camera_pose[3:]
+
+        camera_pose_mat = np.eye(4)
+        camera_pose_mat[:3, -1] = camera_pos
+        camera_pose_mat[:-1, :-1] = R.from_quat(camera_ori).as_matrix()
+
+        batch["base_to_camera"] = np.linalg.inv(camera_pose_mat.squeeze())
+
 
         if self.compute_visibility_mask:
             other_pose_rel = self.data[self.__other_rid('RM' + str(slice_robot_id)) + "_pose_rel_RM" + str(slice_robot_id)][slice]
