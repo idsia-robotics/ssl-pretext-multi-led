@@ -51,6 +51,7 @@ def main():
         'led_pred' : [],
         'timestamp' : [],
         'led_visibility_mask' : [],
+        'base_to_camera' : [],
     }
 
     for batch in tqdm.tqdm(dataloader):
@@ -63,7 +64,7 @@ def main():
         
         data['proj_pred'].extend(proj_pred)
         data['dist_pred'].extend(dist_pred)
-        data['theta_pred'].extend(theta_pred)
+        data['theta_pred'].extend(theta_pred.squeeze())
         data['cos_pred'].extend(cos_pred)
         data['sin_pred'].extend(sin_pred)
         data["led_pred"].extend(led_pred)
@@ -75,6 +76,7 @@ def main():
         data["led_true"].extend(batch["led_mask"])
         data["timestamp"].extend(batch["timestamp"])
         data["led_visibility_mask"].extend(batch["led_visibility_mask"])
+        data["base_to_camera"].extend(batch["base_to_camera"])
 
 
     for k, v in data.items():
@@ -85,7 +87,6 @@ def main():
     data['theta_error'] = angle_difference(data["theta_true"], data["theta_pred"])
     data["proj_error"] = np.linalg.norm(data["proj_true"] - data["proj_pred"], axis = 1)
 
-    # ds = pd.DataFrame(data)
     data["dist_abs_error"] = np.abs(data["dist_true"] - data["dist_pred"])
     mean_dist_error = data["dist_abs_error"].mean()
     mean_angle_error = np.mean(data['theta_error'])
@@ -95,12 +96,11 @@ def main():
     precision_30 = under_30.sum() / under_30.shape[0]
 
 
-    pose_rel_pred = reconstruct_position(data["proj_pred"].T, data["dist_pred"]).T
+    pose_rel_pred = reconstruct_position(data["proj_pred"].T, data["dist_pred"], camera_to_base=np.linalg.inv(data["base_to_camera"])).T
     position_rel_true = np.concatenate((
         data["pose_rel_true"][:, :-1],
         np.zeros((data["pose_rel_true"].shape[0], 1))),
         axis = 1)
-    # breakpoint()
     pose_rel_err = np.linalg.norm(position_rel_true - pose_rel_pred, axis = 1)
     data["pose_rel_err"] = pose_rel_err
     
@@ -123,10 +123,10 @@ def main():
     print(f"Mean distance error: {mean_dist_error}")
     print(f"Mean angle error (rads): {mean_angle_error}")
     print(f"Mean angle error (degs): {np.rad2deg(mean_angle_error)}")
+    print(f"Median pose error (cm): {np.median(pose_rel_err)}")
     print(f"Pose ADD(10cm, 10deg): {data['pose_add_10_10'].mean()}")
     print(f"Pose ADD(20cm, 20deg): {data['pose_add_20_20'].mean()}")
     print(f"Pose ADD(30cm, 30deg): {data['pose_add_30_30'].mean()}")
-    print(data["timestamp"].min())
 
     aucs = []
     for i, led_label in enumerate(H5Dataset.LED_TYPES):
@@ -179,7 +179,8 @@ def main():
         for k in data.keys():
             data[k] = data[k].tolist()
         df = pd.DataFrame(data)
-        df.attrs = params
+        if params is not None:
+            df.attrs = params
         df.to_pickle(args.inference_dump)
 
 
