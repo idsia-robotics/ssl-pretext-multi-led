@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -22,12 +23,20 @@ translation=geometry_msgs.msg.Vector3(x=0.07452833958517707, y=0.000607137455766
 rotation=geometry_msgs.msg.Quaternion(x=-0.49034123379425376, y=0.4886326003895837, z=-0.5094044131423495, w=0.5111856806961056)
 """
 
-base_to_camera = np.array([
-    [ 1.11022302e-16, -1.00000000e+00,  0.00000000e+00,  3.40000000e-04],
-    [ 4.50946877e-02,  1.11022302e-16, -9.98982717e-01,  2.31722261e-01],
-    [ 9.98982717e-01,  0.00000000e+00,  4.50946877e-02, -8.49624244e-02],
-    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]
-)
+# base_to_camera = np.array([
+#     [ 1.11022302e-16, -1.00000000e+00,  0.00000000e+00,  3.40000000e-04],
+#     [ 4.50946877e-02,  1.11022302e-16, -9.98982717e-01,  2.31722261e-01],
+#     [ 9.98982717e-01,  0.00000000e+00,  4.50946877e-02, -8.49624244e-02],
+#     [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]
+# )
+camera_to_base = np.array([
+[-3.49065734e-03,  2.76530096e-02,  9.99611488e-01 , 7.49351087e-02],
+[-9.99993908e-01, -9.65389548e-05, -3.48932213e-03 , 7.14467891e-05],
+[ 1.11899537e-08, -9.99617578e-01,  2.76531781e-02 , 2.33974814e-01],
+[ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00 , 1.00000000e+00],
+])
+image_to_base = camera_to_base
+
 
 gimbal_to_base = np.array([
     [ 1.,     0.,     0.,    -0.002],
@@ -36,9 +45,8 @@ gimbal_to_base = np.array([
     [ 0.,     0.,     0.,     1.   ],
 ])
 
-camera_to_base = np.linalg.inv(base_to_camera)
+base_to_camera = np.linalg.inv(camera_to_base)
 
-image_to_base = camera_to_base
 
 
 # P = np.array([
@@ -48,7 +56,7 @@ image_to_base = camera_to_base
 #         ])
 
 
-K = np.array([305.86615474,   0.0, 313.32092337,  0.0, 307.25209474, 183.31037687,  0.0,0.0,   1.0]).reshape(3,3)
+K = np.array([314.26712497,   0.0, 322.317073, 0.0, 314.24818945, 176.7395928, 0.0, 0.0, 1.0]).reshape(3,3)
 P = np.zeros((3, 4))
 P[:, :-1] = K
 
@@ -58,9 +66,9 @@ P[:, :-1] = K
 #     [0, 0, 1]
 #     ])
 
-d = np.array([-0.0854973,   0.04988998, -0.0031321,  -0.00019603, -0.04222285])
+d = np.array([-0.07173926,  0.0384923,  -0.00145677,  0.0002169,  -0.03831285])
 
-def reconstruct_position(proj_uv, x_coord):
+def reconstruct_position(proj_uv, x_coord, camera_to_base = image_to_base[None, ...]):
     """
     Models predict the image-space position of the
     gimbal joint on the robomaster.
@@ -78,8 +86,8 @@ def reconstruct_position(proj_uv, x_coord):
     # backproj_cv = cv2.undistortPoints(
     #     proj_uv,
     #     cameraMatrix=K,
-    #     distCoeffs=d,
-    # )[0, :].T
+    #     distCoeffs=np.zeros((1,4)),
+    # ).squeeze().T
 
     # backproj_cv = np.concatenate(
     #     (
@@ -87,16 +95,17 @@ def reconstruct_position(proj_uv, x_coord):
     #         np.ones((2,backproj_cv.shape[-1])),
     #     ), axis = 0)
 
-    proj_uv_homo = np.ones((3, proj_uv.shape[1]))
+    proj_uv_homo = np.ones((3, proj_uv.shape[-1]))
     proj_uv_homo[:-1, :] = proj_uv
     # proj_uv_homo[1, :] = 360 - proj_uv_homo[1, :]
 
     backproj = np.linalg.pinv(P) @ proj_uv_homo
+    # backproj = backproj_cv
     backproj[-1, :] = 1
-    ray_to_gimbal = (image_to_base @ backproj)
+    ray_to_gimbal = (camera_to_base @ backproj.T[..., None]).squeeze().T
     reconstructed_position = ray_to_gimbal * (x_coord / ray_to_gimbal[0, :])[None, ...]
-    reconstructed_position[2, :] = 0
-    reconstructed_position[0, :] -= -0.002
+    reconstructed_position[2, :] -= .118
+    # reconstructed_position[0, :] -= -0.002
     
     # reconstructed_position /= reconstructed_position[-1, :]
     
@@ -104,11 +113,6 @@ def reconstruct_position(proj_uv, x_coord):
     # ray_to_base = (ray_to_gimbal @ gimbal_to_base).T
     # ray_to_base /= ray_to_base[-1, :]
     return reconstructed_position[:-1, ...]
-
-
-
-
-
     # Backproject
 
 
@@ -116,3 +120,14 @@ def reconstruct_position(proj_uv, x_coord):
 
     # Add orientation
     
+
+def point_rel_to_camera(point, camera_pose = base_to_camera):
+    """
+    Expects point to be Nx3
+    """
+    point_homo = np.pad(point, ((0,0), (0,1)), mode='constant', constant_values=1)
+    res = cv2.projectPoints((camera_pose @ point_homo.T).T[..., :3].astype(np.float32),
+                    np.zeros(3), np.zeros(3),
+                    K,
+                    np.zeros(0))[0].squeeze()
+    return res
