@@ -94,7 +94,6 @@ def reconstruct_position(proj_uv, x_coord, camera_to_base = image_to_base[None, 
     #         backproj_cv,
     #         np.ones((2,backproj_cv.shape[-1])),
     #     ), axis = 0)
-
     proj_uv_homo = np.ones((3, proj_uv.shape[-1]))
     proj_uv_homo[:-1, :] = proj_uv
     # proj_uv_homo[1, :] = 360 - proj_uv_homo[1, :]
@@ -102,7 +101,7 @@ def reconstruct_position(proj_uv, x_coord, camera_to_base = image_to_base[None, 
     backproj = np.linalg.pinv(P) @ proj_uv_homo
     # backproj = backproj_cv
     backproj[-1, :] = 1
-    ray_to_gimbal = (camera_to_base @ backproj.T[..., None]).squeeze().T
+    ray_to_gimbal = (camera_to_base @ backproj.T[..., None]).squeeze(-1).T
     reconstructed_position = ray_to_gimbal * (x_coord / ray_to_gimbal[0, :])[None, ...]
     reconstructed_position[2, :] -= .118
     # reconstructed_position[0, :] -= -0.002
