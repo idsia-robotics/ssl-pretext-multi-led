@@ -19,6 +19,7 @@ Estimating the state of multiple independent LEDs promotes learning to estimate 
 The approach works even when a large fraction of training images do not include the peer robot and generalizes well to unseen environments.
 
 ![Results table](table.png)
+
 Table 1: _Model's median error on 2D position $uv$, heading $\psi$, distance $d$, and 3D position $xyz$ averaged on four replicas per row._
 
 ## How to run
