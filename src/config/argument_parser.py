@@ -21,6 +21,7 @@ def parse_args(*config):
     parser.add_argument("--experiment-id", type=str, default=None)
     parser.add_argument("-t", "--task", type=str)
     parser.add_argument("--dist-range", type=float, nargs="+", default = [-Inf, Inf])
+    parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax", "mean"], default = "pred")
 
     if 'inference' in config:
         group = parser.add_mutually_exclusive_group()
@@ -30,9 +31,7 @@ def parse_args(*config):
         mlflow_group.add_argument("--checkpoint-id", type=str)
         mlflow_group.add_argument("--run-id", type=str, default=None)
         group.add_argument("--checkpoint-path", type=str)
-
         parser.add_argument("--inference-dump", default=None, type=Path)
-        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax", "mean"], default = "amax")
 
 
     if 'vis' in config:
@@ -46,7 +45,7 @@ def parse_args(*config):
 
 
     if 'train' in config:
-        parser.add_argument("-m", "--model-type", type=str, default='model_s')
+        parser.add_argument("-m", "--model-type", type=str, default='model_s_wide')
         parser.add_argument("-n", "--run-name", type=str, default=datetime.now().isoformat())
         parser.add_argument("-v", "--validation-dataset", type=Path, default=None)
         parser.add_argument("-e", "--epochs", type=int, default=100)
@@ -59,13 +58,9 @@ def parse_args(*config):
         parser.add_argument("--w-led", default=.25, type = float)
         parser.add_argument("--labeled-count", default = None, type=int)
         parser.add_argument("--labeled-count-seed", default = 0, type=int)
-        parser.add_argument("--led-inference", type=str, choices=["gt", "pred", "hybrid", "amax", "mean"])
         parser.add_argument("--lr-schedule", type=str, choices=["cosine", "shark"], default='cosine')
         parser.add_argument("--checkpoint-id", type=str)
         parser.add_argument("--weights-run-name", type=str, default=None)
-
-
-
 
     if "comparison" in config:
         parser.add_argument("--dump-files", type=Path, nargs="+")
