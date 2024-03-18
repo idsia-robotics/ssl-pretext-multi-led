@@ -58,13 +58,13 @@ python3 -m training \
     --labeled-count 0 \
     --visible # Remove this if you want to train also on non-visible-robot images 
 ```
-To train the __downstream__ model, the scripts assume that a pretext checkpoint is available in a past mlflow run with the name `{pretext_run_name}`. To train a downsteram model with 1000 labeled samples, run:
+To train the __downstream__ model, the scripts assume that a pretext checkpoint is available in a past mlflow run with the name `{PRETEXT_RUN_NAME}`. To train a downsteram model with 1000 labeled samples, run:
 
 ```bash
 python3 -m training
     --experiment-id 0
     --run-name downstream_model
-    --weights-run-name {pretext_run_name}
+    --weights-run-name {PRETEXT_RUN_NAME}
     --checkpoint-id 99
     --model-type model_s_wide
     --task downstream
