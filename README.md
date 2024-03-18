@@ -20,7 +20,7 @@ The approach works even when a large fraction of training images do not include 
 
 ![Results table](table.png)
 
-Table 1: _Model's median error on 2D position $uv$, heading $\psi$, distance $d$, and 3D position $xyz$ averaged on four replicas per row._
+Table 1: Model's median error on 2D position $uv$, heading $\psi$, distance $d$, and 3D position $xyz$ averaged on four replicas per row.
 
 ## How to run
 
