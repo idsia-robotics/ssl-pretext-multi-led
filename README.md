@@ -1,5 +1,5 @@
 # Learning to Estimate the Pose of a Peer Robot in a Camera Image by Predicting the States of its LEDs
-[[Paper]](https://github.com/idsia-robotics/ssl-pretext-multi-led) [[Video]](https://github.com/idsia-robotics/ssl-pretext-multi-led) [[Dataset]](https://github.com/idsia-robotics/ssl-pretext-multi-led)
+[[Paper]](https://github.com/idsia-robotics/ssl-pretext-multi-led) [[Video]](https://drive.switch.ch/index.php/s/i5g6ktTii6Xil3L) [[Training Dataset]](https://drive.switch.ch/index.php/s/Ck05KNJcblCUaXd) [[Validation Dataset]](https://drive.switch.ch/index.php/s/i7fUIk1mhIIHpbs) [[Testing Dataset]](https://drive.switch.ch/index.php/s/wSUQrmhJZWoJC4F) 
 
 _Nicholas Carlotti, Mirko Nava, and Alessandro Giusti_
 
