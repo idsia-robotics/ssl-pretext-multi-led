@@ -1,13 +1,8 @@
-from typing import Any, Tuple
+from typing import Any
 import torch
 from src.models import BaseModel, ModelRegistry
-from torch.nn.functional import binary_cross_entropy as bce
-from torchvision.transforms.functional import resize, InterpolationMode
 from numpy import unravel_index, stack
 import numpy as np
-import torch.nn.functional as F
-
-
 
 class RangeRescaler(torch.nn.Module):
 
@@ -242,7 +237,7 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
                 self.core_layers,
                 self.robot_pose_and_led_layer
             )
-        elif self.task == 'tuning':
+        elif self.task == 'tuning' or self.task == 'downstream':
             self.robot_pose_and_led_layer = torch.nn.Sequential(
                 torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1),
                 torch.nn.ReLU(),
@@ -319,16 +314,9 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
             outs=model_out,
             to_numpy=False).float()
         downscaled_gt_proj = self.downscaler(batch['pos_map'][:, None, ...].to(model_out.device))
-        # downscaled_gt_proj = downscaled_gt_proj / torch.sum(downscaled_gt_proj, dim = (-1, -2), keepdim=True)
-        # downscaled_gt_proj_norm = downscaled_gt_proj / (downscaled_gt_proj.sum(axis = (-1, -2), keepdims = True) + self.epsilon)
         proj_pred_norm = proj_pred / (proj_pred + self.epsilon).sum(axis=(-1, -2), keepdims=True)
-        # loss = torch.nn.functional.mse_loss(proj_pred.float(), downscaled_gt_proj.float(), reduction='none').mean(axis = (-1, -2, -3))
         loss = 1 - (proj_pred_norm * downscaled_gt_proj).sum(axis = (-1, -2, -3))
-        # loss = torch.nn.functional.mse_loss(
-        #     proj_pred,
-        #     downscaled_gt_proj.float(),
-        #     reduction='none'
-        # ).mean(dim = (-1, -2))
+
         if return_norm:
             if detach_norm:
                 return loss, proj_pred_norm.detach()
@@ -373,7 +361,6 @@ class Model_s(FullyConvPredictorMixin, BaseModel):
                     led_preds[:, i], led_trues[:, i].float(), reduction='none')
         losses[:, 1] = 0.
         losses[:, 2] = 0.
-        # losses[:, :-2] = 0.
         return losses, losses.detach().mean(0)        
 
     def pose_and_leds_forward(self, x):
@@ -439,179 +426,3 @@ class Model_s_wide(Model_s):
             self.robot_pose_and_led_layer
         )
     
-
-@ModelRegistry("model_s_opt")
-class Model_s_optimized(Model_s):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=3, padding=1, stride=1, bias=False),
-            torch.nn.BatchNorm2d(6),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=3, padding=1, stride=1, bias=False),
-            torch.nn.BatchNorm2d(8),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(8, 16, kernel_size=3, padding=1, stride=1, bias=False),
-            torch.nn.BatchNorm2d(16),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(16, 32, kernel_size=3, padding=1, stride=1, bias=False),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 32, kernel_size=5, padding=6, stride=1, dilation = 3, bias=False),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 32, kernel_size=5, padding=4, stride=1, dilation=2, bias=False),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
-
-        )
-
-        if self.task == 'presence':
-            self.robot_presence_layer = torch.nn.Sequential(
-                torch.nn.Flatten(),
-                torch.nn.LazyLinear(256),
-                torch.nn.LazyLinear(1),
-                torch.nn.Sigmoid()
-            )
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_presence_layer
-            )
-            self.loss = self.__robot_presence_loss
-        if self.task == 'position':
-            self.robot_position_layer = torch.nn.Sequential(
-                torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
-                torch.nn.Conv2d(3, 1, kernel_size=1, padding=0, stride=1),
-                torch.nn.Sigmoid()
-            )
-
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_position_layer
-            )
-            self.loss = self._robot_position_loss
-        elif self.task == 'pose':
-            self.robot_pose_layer = torch.nn.Sequential(
-                torch.nn.Conv2d(32, 4, kernel_size=1, padding=0, stride=1),
-                torch.nn.ReLU(),
-                torch.nn.BatchNorm2d(4),
-                torch.nn.Conv2d(4, 4, kernel_size=1, padding=0, stride=1),
-                # torch.nn.Sigmoid()
-            )
-
-            self.forward = self.__position_and_orientation_forward
-            self.loss = self.__robot_pose_loss
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_pose_layer
-            )
-            self.MAX_DIST_M = 5.
-        elif self.task == 'pose_and_led':
-            self.robot_pose_and_led_layer = torch.nn.Sequential(
-                torch.nn.Conv2d(32, 10, kernel_size=1, padding=0, stride=1, bias=False),
-                torch.nn.BatchNorm2d(10),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
-                # torch.nn.Sigmoid()
-            )
-            self.forward = self.pose_and_leds_forward
-            self.loss = self._robot_pose_and_leds_loss
-
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-                self.robot_pose_and_led_layer
-            )
-            self.MAX_DIST_M = 5.
-
-class ConvBlock(torch.nn.Module):
-    
-    def __init__(self, in_channels, out_channels) -> None:
-        super().__init__()
-        self.layers = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1, stride=1, bias = False),
-            torch.nn.BatchNorm2d(in_channels),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1, stride=1, bias = False),
-            torch.nn.BatchNorm2d(in_channels),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0, stride=1, bias = False),
-            torch.nn.BatchNorm2d(out_channels),
-        )
-
-    def forward(self, x):
-        return self.layers(x)
-        
-
-@ModelRegistry("deep_model_s")
-class Deep_Model_s(Model_s):
-    def __init__(self, *args, **kwargs):
-        super(Deep_Model_s, self).__init__(*args, **kwargs)
-
-        self.core_layers = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 6, kernel_size=7, padding=3, stride=2, bias = False),
-            torch.nn.BatchNorm2d(6),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(6, 8, kernel_size=5, padding=2, stride=1, bias = False),
-            torch.nn.BatchNorm2d(8),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(8, 16, kernel_size=5, padding=2, stride=2, bias = False),
-            torch.nn.BatchNorm2d(16),
-            torch.nn.ReLU(),
-            # torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(16, 32, kernel_size=5, padding=2, stride=1, bias = False),
-            torch.nn.BatchNorm2d(32),
-            torch.nn.ReLU(),
-            # torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(32, 64, kernel_size=5, padding=2, stride=2, bias = False),
-            torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(),
-            # torch.nn.MaxPool2d(2),
-            torch.nn.Conv2d(64, 64, kernel_size=5, padding=2, stride=1, bias = False),
-            torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(64, 64, kernel_size=5, padding=2, stride=1, bias = False),
-            torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(64, 10, kernel_size=3, padding=1, stride=1, bias=False),
-            torch.nn.BatchNorm2d(10),
-            torch.nn.ReLU(),
-            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
-
-        )
-
-        if self.task == 'pose_and_led':
-            self.deep_robot_pose_and_led_layer = [ConvBlock(10, 1) for _ in range(10)]
-            self.forward = lambda x: Deep_Model_s.forward(self, x)
-
-            self.layers = torch.nn.Sequential(
-                self.core_layers,
-            )
-            self.MAX_DIST_M = 5.
-        
-    def forward(self, x):
-        core_out = self.core_layers(x)
-        result = torch.cat(
-            [b(core_out) for b in self.deep_robot_pose_and_led_layer],
-            dim = 1
-        )
-        out = torch.cat(
-            [
-                torch.nn.functional.sigmoid(result[:, :2, ...]), # pos and dist
-                torch.nn.functional.tanh(result[:, 2:4, ...]), # orientation
-                torch.nn.functional.sigmoid(result[:, 4:, ...]), # leds
-                
-            ],
-            axis = 1)
-        return out
-    
-    def to(self, *args, **kwargs):
-        res = super().to(*args, **kwargs)
-        self.deep_robot_pose_and_led_layer = [
-            b.to(*args, **kwargs) for b in self.deep_robot_pose_and_led_layer
-        ]
-        return res
