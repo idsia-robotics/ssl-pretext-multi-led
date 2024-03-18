@@ -59,7 +59,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             optimizer.zero_grad()
 
             image = batch['image'].to(device)
-            
             out = model.forward(image)
 
             p_loss, d_loss, o_loss, led_loss, m_led_loss = model.loss(batch, out)
@@ -92,23 +91,26 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
             led_losses[batch_i] = summed_l_loss.detach().item()
             multiple_led_losses[batch_i] = [l.item() for l in m_led_loss]
 
-#            with torch.no_grad():
-#                pos_preds = model.predict_pos_from_outs(image, out)
-#                preds.extend(pos_preds)
-#                trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
-#                dist_trues.extend(batch["distance_rel"].cpu().numpy())
-#                theta_trues.extend(batch["pose_rel"][:, -1].cpu().numpy())
-#                dpreds = model.predict_dist_from_outs(out)
-#                tpreds=  model.predict_orientation_from_outs(out)
-#                theta_preds.extend(tpreds)
-#                dist_preds.extend(dpreds) 
+            with torch.no_grad():
+                pos_preds = model.predict_pos_from_outs(image, out)
+                preds.extend(pos_preds)
+                trues.extend(batch['proj_uvz'][:, :-1].cpu().numpy())
+                dist_trues.extend(batch["distance_rel"].cpu().numpy())
+                theta_trues.extend(batch["pose_rel"][:, -1].cpu().numpy())
+                dpreds = model.predict_dist_from_outs(out).flatten()
+                tpreds=  model.predict_orientation_from_outs(out)[0].flatten()
+                theta_preds.extend(tpreds)
+                dist_preds.extend(dpreds) 
 
-#        errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
-#        dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
+        errors = np.linalg.norm(np.stack(preds) - np.stack(trues), axis = 1)
+        dist_errors = np.abs(np.array(dist_preds) - np.array(dist_trues))
         multiple_led_losses = np.stack(multiple_led_losses, axis = 0)
+        ori_errors = angle_difference(np.stack(theta_preds), np.stack(theta_trues))
         
-#        mlflow.log_metric('train/position/median_error', np.median(errors), e)
-#        mlflow.log_metric('train/distance/mean_error', np.mean(dist_errors), e)
+        mlflow.log_metric('train/position/median_error', np.median(errors), e)
+        mlflow.log_metric('train/distance/median_error', np.median(dist_errors), e)
+        mlflow.log_metric('train/orientation/median_error', np.median(ori_errors), e)
+        
         mlflow.log_metric('train/loss', sum(losses), e)
         mlflow.log_metric('train/loss/proj', sum(p_losses) / (supervised_count + 1e-15), e)
         mlflow.log_metric('train/loss/ori', sum(o_losses) / (supervised_count + 1e-15), e)
@@ -206,11 +208,6 @@ def train_loop(model : BaseModel, train_dataloader, val_dataloader, device,
                 mlflow.log_metric(f'validation/led/auc/{led_label}', auc, e)
                 aucs.append(auc)
             mlflow.log_metric('validation/led/auc', mean(aucs), e)
-
-
-
-            # auc = binary_auc(preds, trues)
-            # mlflow.log_metric('validation/presence/auc', auc, e)
             mlflow.log_metric('validation/loss', mean(losses), e)
 
 
@@ -228,9 +225,9 @@ def main():
     train_dataset = train_dataset = get_dataset(args.dataset, sample_count=args.sample_count, sample_count_seed=args.sample_count_seed, augmentations=True,
                                 only_visible_robots=args.visible, compute_led_visibility=False,
                                 supervised_flagging=args.labeled_count,
-                                supervised_flagging_seed=args.labeled_count_seed
+                                supervised_flagging_seed=args.labeled_count_seed,
+                                non_visible_perc=args.non_visible_perc
                                 )
-    print(args.batch_size)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size = args.batch_size, num_workers=8, shuffle=True)
 
     """
@@ -256,7 +253,7 @@ def main():
 
     }
     ds_size = len(train_dataset)
-    supervised_count = args.labeled_count if args.labeled_count else ds_size
+    supervised_count = args.labeled_count if args.labeled_count is not None else ds_size
     if 'cuda' in args.device:
         torch.backends.cudnn.benchmark = True
 
