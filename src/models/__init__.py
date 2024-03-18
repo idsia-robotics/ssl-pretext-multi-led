@@ -79,7 +79,6 @@ def ModelRegistry(name):
 import src.models.fcn
 import src.models.multi_scale_fcn
 import src.models.mobile_net
-import src.models.vit
 import src.models.resnet
 import src.models.clip
 
