@@ -66,44 +66,44 @@ To train the __downstream__ model, the scripts assume that a pretext checkpoint 
 
 ```bash
 python3 -m training
-    --experiment-id 0
-    --run-name downstream_model
-    --weights-run-name {PRETEXT_RUN_NAME}
-    --checkpoint-id 99
-    --model-type model_s_wide
-    --task downstream
-    --dataset data/four_leds_training.h5
-    --validation-dataset data/four_leds_validation.h5
-    --device {YOUR_DEVICE}
-    --epochs 100
-    --learning-rate 0.002
-    --w-led 1.
-    --w-proj 0.3
-    --w-dist 0.3
-    --w-ori 0.3
-    --sample-count 1000
-    --sample-count-seed 0
+    --experiment-id 0 \
+    --run-name downstream_model \
+    --weights-run-name {PRETEXT_RUN_NAME} \
+    --checkpoint-id 99 \
+    --model-type model_s_wide \
+    --task downstream \
+    --dataset data/four_leds_training.h5 \
+    --validation-dataset data/four_leds_validation.h5 \
+    --device {YOUR_DEVICE} \
+    --epochs 100 \
+    --learning-rate 0.002 \
+    --w-led 1. \
+    --w-proj 0.3 \
+    --w-dist 0.3 \
+    --w-ori 0.3 \
+    --sample-count 1000 \
+    --sample-count-seed 0 \
     --visible
 ```
 
 To train the __baseline__ model, run:
 ```bash
 python3 -m training
-    --experiment-id 0
-    --run-name baseline_model
-    --model-type model_s_wide
-    --task downstream
-    --dataset data/four_leds_training.h5
-    --validation-dataset data/four_leds_validation.h5
-    --device {YOUR_DEVICE}
-    --epochs 100
-    --learning-rate 0.002
-    --w-led 0.
-    --w-proj 0.3
-    --w-dist 0.3
-    --w-ori 0.3
-    --sample-count 1000
-    --sample-count-seed 0
+    --experiment-id 0 \
+    --run-name baseline_model \
+    --model-type model_s_wide \
+    --task downstream \
+    --dataset data/four_leds_training.h5 \
+    --validation-dataset data/four_leds_validation.h5 \
+    --device {YOUR_DEVICE} \
+    --epochs 100 \
+    --learning-rate 0.002 \
+    --w-led 0. \
+    --w-proj 0.3 \
+    --w-dist 0.3 \
+    --w-ori 0.3 \
+    --sample-count 1000 \
+    --sample-count-seed 0 \
     --visible
 ```
 
@@ -112,12 +112,12 @@ To test a checkpoint from a mlflow run, execute:
 
 ```bash
 python3 -m testing
-    --experiment-id 0
-    --device {YOUR_DEVICE}
-    --dataset data/four_leds_testing.h5
-    --run-name {RUN_NAME}
-    --checkpoint-id 99
-    --task {MODEL_TASK}
+    --experiment-id 0 \
+    --device {YOUR_DEVICE} \
+    --dataset data/four_leds_testing.h5 \
+    --run-name {RUN_NAME} \
+    --checkpoint-id 99 \
+    --task {MODEL_TASK} \
     --visible
 
 ```
