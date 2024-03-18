@@ -100,15 +100,6 @@ class H5Dataset(torch.utils.data.Dataset):
                     self.visibility_mask[i] = True
                     break
             
-        distance_mask = np.ones(len(self), dtype=np.int8)
-
-        if distance_range:
-            print("DISTANCE RANGE FILTERING IS DISABLED")
-        #     distance_true = self.data["pose_rel"][:, 2]
-        #     distance_mask = (distance_true <= distance_range[1]) &\
-        #     (distance_true >= distance_range[0])
-        
-        
         if only_visible_robots:
             non_vis_count = non_visible_robots_perc * (~self.visibility_mask).sum()
             non_vis_idx = np.random.choice(
@@ -117,11 +108,9 @@ class H5Dataset(torch.utils.data.Dataset):
             )
             self.valid_ds_indexes = np.concatenate(
                 [
-                    np.where(self.visibility_mask & distance_mask)[0],
+                    np.where(self.visibility_mask)[0],
                     non_vis_idx
                 ])
-        else:
-            self.valid_ds_indexes = np.where(distance_mask)[0]
 
         if robot_id:
             mask = self.data["robot_id"][self.valid_ds_indexes] == robot_id
@@ -200,6 +189,8 @@ class H5Dataset(torch.utils.data.Dataset):
 
 
         if self.compute_visibility_mask:
+            # batch["led_visibility_mask"] = torch.zeros(6, dtype = torch.bool)
+
             other_pose_rel = self.data[self.__other_rid('RM' + str(slice_robot_id)) + "_pose_rel_RM" + str(slice_robot_id)][slice]
             # other_theta_rel = np.arctan2(other_pose_rel[1], other_pose_rel[0])
             # led_visibility = (other_theta_rel >= self.LED_VISIBILITY_RANGES_RAD[:, :, 0]) &\
@@ -242,10 +233,13 @@ class H5Dataset(torch.utils.data.Dataset):
 
 
     def __position_map(self, proj_uvz, robot_visible, map_size = (360, 640), orb_size = 20, align_to = None):
-        # Padded so i can easily crop it out
+        """
+        Returns a proj map containing an orb centered on the uv coordinates
+        """
         if not robot_visible:
-            return np.ones(map_size)
+            return np.ones(map_size) * 1e-12
 
+        # Padded so i can easily crop it out
         padding = orb_size
         result = np.pad(np.zeros(map_size), padding, 'constant', constant_values=0) # 440x720
         
@@ -259,7 +253,10 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 u = int(proj_uvz[0]) // align_to * align_to + align_to // 2 + padding
                 v = int(proj_uvz[1]) // align_to * align_to + align_to // 2 + padding
-            result[v - orb_size // 2 : v + orb_size // 2, u - orb_size // 2 : u + orb_size // 2] = self.__pos_map_orb
+            result[
+                    v - padding // 2 : v + padding // 2,
+                    u - padding // 2 : u + padding // 2
+                ] = self.__pos_map_orb
         return result[padding:-padding, padding:-padding]
     
     def __other_rid(self, rid):
@@ -279,7 +276,6 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
     transform = lambda x: x
     if augmentations:
         transform = torchvision.transforms.Compose([
-            # RandomHorizontalFlip((360, 640)),
             GunHider(),
             RandomRotTranslTransform(9, .1, bound=H5Dataset.POS_ORB_SIZE * 2),
             SimplexNoiseTransform((360, 640)),
@@ -290,7 +286,8 @@ def get_dataset(dataset_path, camera_robot = None, target_robots = None, augment
         )
     else:
         transform = torchvision.transforms.Compose([
-            GunHider(),]
+            GunHider(),
+            ]
         )
 
     camera_robot_id_int = None
@@ -328,16 +325,19 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from time import time
 
-    dataset = get_dataset("../robomaster_led/real_four_ds_training.h5")
+    dataset = get_dataset("../robomaster_led/real_four_ds_training.h5", compute_led_visibility=True)
     dataloader = DataLoader(dataset, batch_size = 1, shuffle = False, num_workers=8)
     counts = {}
     start_time = time()
     visible_robots = 0
+    led_visibility_masks_acc = np.zeros(6)
     for batch in iter(dataloader):
         for k in batch.keys():
             counts[k] = counts.get(k, 0) + batch[k].shape[0]
         visible_robots += batch['robot_visible'].squeeze().sum().cpu()
+        led_visibility_masks_acc + batch['led_visibility_mask'].numpy().squeeze().sum(0)
     elapsed = time() - start_time
     print(f"Read whole dataset in {elapsed:.2f} seconds")
     print(counts)
     print(f"Visible instances: {visible_robots}")
+    print(f"Led visibility: {led_visibility_masks_acc}")
