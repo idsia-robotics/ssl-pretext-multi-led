@@ -65,7 +65,7 @@ python3 -m training \
 To train the __downstream__ model, the scripts assume that a pretext checkpoint is available in a past mlflow run with the name `{PRETEXT_RUN_NAME}`. To train a downsteram model with 1000 labeled samples, run:
 
 ```bash
-python3 -m training
+python3 -m training \
     --experiment-id 0 \
     --run-name downstream_model \
     --weights-run-name {PRETEXT_RUN_NAME} \
@@ -88,7 +88,7 @@ python3 -m training
 
 To train the __baseline__ model, run:
 ```bash
-python3 -m training
+python3 -m training \
     --experiment-id 0 \
     --run-name baseline_model \
     --model-type model_s_wide \
@@ -111,7 +111,7 @@ python3 -m training
 To test a checkpoint from a mlflow run, execute:
 
 ```bash
-python3 -m testing
+python3 -m testing \
     --experiment-id 0 \
     --device {YOUR_DEVICE} \
     --dataset data/four_leds_testing.h5 \
