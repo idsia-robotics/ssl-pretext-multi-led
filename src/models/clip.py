@@ -5,7 +5,7 @@ from src.models import ModelRegistry, BaseModel
 
 @ModelRegistry("clip")
 class ClipHead(BaseModel):
-    def __init__(self):
+    def __init__(self, task=None, led_inference = None):
         super(ClipHead, self).__init__(task = '')
 
         self.linear = torch.nn.Sequential(
@@ -87,16 +87,21 @@ class ClipHead(BaseModel):
         return torch.optim.Adam(self.linear.parameters(), lr=learning_rate)
 
 
-    def predict_pos_from_outs(self, outs):
-        return outs[..., :2].detach().cpu().numpy()
+    def predict_pos_from_outs(self, image, outs, to_numpy = True):
+        return outs[..., :2].detach().cpu().numpy().squeeze()
     
-    def predict_orientation_from_outs(self, outs):
-        return torch.atan2(outs[..., 4], outs[..., 5]).detach().cpu().numpy()[None, ...]
+    def predict_orientation_from_outs(self, outs, **kwargs):
+        return torch.atan2(outs[..., 4], outs[..., 5]).detach().cpu().numpy(), outs[..., 4].detach(), outs[..., 5].detach()
     
-    def predict_dist_from_outs(self, outs):
-        return outs[..., 2:3].detach().cpu().numpy()
+    def predict_dist_from_outs(self, outs, **kwargs):
+        return outs[..., 2].detach().cpu().numpy()
     
-    def predict_leds_from_outs(self, outs):
-        return torch.ones(outs.shape[0])
+    def predict_leds_from_outs(self, outs, **kwargs):
+        return torch.ones(outs.shape[0], 6)
+    
+    def predict_leds(self, outs, batch):
+        return self.predict_leds_from_outs(outs)
+
+
 
     
