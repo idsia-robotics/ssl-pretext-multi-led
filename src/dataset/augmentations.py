@@ -170,6 +170,7 @@ class GunHider(torch.nn.Module):
 
     def __call__(self, batch) -> Any:
         img = batch['image']
+        batch["image_with_gun"] = img.clone()
         img[..., 280:, 270:370] = 0
         batch['image'] = img
         return batch
