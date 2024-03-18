@@ -1,3 +1,4 @@
+from datetime import datetime
 import torch
 from matplotlib import pyplot as plt
 from src.dataset.dataset import get_dataset
@@ -41,10 +42,6 @@ def main():
 
     fig = plt.figure(figsize=(1920 / 150, 1080 / 150), dpi=150)
     axs = [plt.subplot(330 + i + 1) for i in range(9)]
-    
-    
-    
-
     fig.tight_layout()
 
     model_kwargs={'task' : args.task, 'led_inference' : args.led_inference}
@@ -56,6 +53,12 @@ def main():
         model = load_model_raw(args.checkpoint_path, model_kwargs=model_kwargs)
 
     model.eval()
+
+    def save_frame(ev):
+        if ev.key == 'e':
+            name = f"/tmp/{datetime.today().isoformat()}.svg"
+            fig.savefig(name, format="svg")
+    fig.canvas.mpl_connect('key_press_event', save_frame)
 
     widgets = [RobotLedInferenceWidget(axs, title='Led output'),]
     anim = animation.FuncAnimation(
