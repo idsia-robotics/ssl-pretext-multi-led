@@ -47,34 +47,34 @@ class FullyConvPredictorMixin:
             return outs
 
         out_map_shape = outs.shape[-2:]
-        outs = outs.view(outs.shape[0], -1)
-        max_idx = outs.argmax(1).cpu()
-        indexes = unravel_index(max_idx, out_map_shape)
-        #               x               y
-        indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
-        indexes /= np.array([out_map_shape[1], out_map_shape[0]])
-        indexes *= np.array([image.shape[-1], image.shape[-2]])
-
-        y_scale_f = image.shape[0] / out_map_shape[0]
-        x_scale_f = image.shape[1] / out_map_shape[1]
-        indexes += np.array([x_scale_f, y_scale_f]) / 2
-        return indexes.astype(np.int32)
-
-        # outs = outs[:, :1, ...].detach()
-        # maxs = outs.flatten(-2).max(-1).values
-        # thr = maxs * .99
-        # outs = (outs > thr[..., None, None]) * outs
-        # ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
-        # coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
-        # reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
-        # total_mass = torch.sum(reshaped_maps, axis = 1)
-        # centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
-
-        # indexes = stack([centre_of_mass[:, 1], centre_of_mass[:, 0]]).T.astype('float32')
+        # outs = outs.view(outs.shape[0], -1)
+        # max_idx = outs.argmax(1).cpu()
+        # indexes = unravel_index(max_idx, out_map_shape)
+        # #               x               y
+        # indexes = stack([indexes[1], indexes[0]]).T.astype('float32')
         # indexes /= np.array([out_map_shape[1], out_map_shape[0]])
         # indexes *= np.array([image.shape[-1], image.shape[-2]])
 
+        # y_scale_f = image.shape[0] / out_map_shape[0]
+        # x_scale_f = image.shape[1] / out_map_shape[1]
+        # indexes += np.array([x_scale_f, y_scale_f]) / 2
         # return indexes.astype(np.int32)
+
+        outs = outs[:, :1, ...].detach()
+        maxs = outs.flatten(-2).max(-1).values
+        thr = maxs * .99
+        outs = (outs > thr[..., None, None]) * outs
+        ii, jj = torch.meshgrid(torch.arange(outs.shape[-2]), torch.arange(outs.shape[-1]), indexing='ij')
+        coords = torch.stack([torch.reshape(ii, (-1,)), torch.reshape(jj, (-1,))], axis = -1)
+        reshaped_maps = torch.reshape(outs, [-1, outs.shape[-2] * outs.shape[-1], 1])
+        total_mass = torch.sum(reshaped_maps, axis = 1)
+        centre_of_mass = torch.sum(reshaped_maps * coords, axis = 1) / total_mass
+
+        indexes = stack([centre_of_mass[:, 1], centre_of_mass[:, 0]]).T.astype('float32')
+        indexes /= np.array([out_map_shape[1], out_map_shape[0]])
+        indexes *= np.array([image.shape[-1], image.shape[-2]])
+
+        return indexes.astype(np.int32)
 
     def predict_pos(self, image):
         outs = self(image)
@@ -426,3 +426,47 @@ class Model_s_wide(Model_s):
             self.robot_pose_and_led_layer
         )
     
+@ModelRegistry("model_s_small_rf")
+class Model_s_wide(Model_s):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.core_layers = torch.nn.Sequential(
+            torch.nn.Conv2d(3, 12, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(12),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(12, 24, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(24),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(24, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 32, kernel_size=3, padding=1, stride=1),
+            torch.nn.BatchNorm2d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2),
+            torch.nn.Conv2d(32, 64, kernel_size=5, padding=6, stride=1, dilation = 1),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 64, kernel_size=5, padding=4, stride=1, dilation= 1),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(),
+            # torch.nn.Conv2d(32, 3, kernel_size=1, padding=0, stride=1),
+
+        )
+        self.robot_pose_and_led_layer = torch.nn.Sequential(
+                torch.nn.Conv2d(64, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.BatchNorm2d(10),
+                torch.nn.ReLU(),
+                torch.nn.Conv2d(10, 10, kernel_size=1, padding=0, stride=1),
+                torch.nn.BatchNorm2d(10)
+        )
+        self.forward = self.pose_and_leds_forward
+        # self.loss = self._robot_pose_and_leds_loss
+
+        self.layers = torch.nn.Sequential(
+            self.core_layers,
+            self.robot_pose_and_led_layer
+        )
